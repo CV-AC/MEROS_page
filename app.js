@@ -2393,49 +2393,49 @@
   const DEPTH_SCENES = {
     eth5_moge: {
       meros: "assets/sliders/depth/eth5_moge_meros.jpg",
-      rTitle: "MEROS r=8 Native 6K",
+      rTitle: "MEROS r=8 · Native 6K",
       rSub: "AbsRel 3.46% · 2.03 s (6.8× vs. FA2)",
       pill: "6.8× vs. Exact FA2 · 2.4× faster than i-clustered",
       meta: "<strong>ETH3D Pipes (6048×4032, 129k tokens, MoGe-3 ViT-G):</strong> i-clustered runs 2.4× slower than MEROS (4.91 s vs. 2.03 s) and washes out ceiling ducts and wall pipes (AbsRel 5.09%). MEROS r=8 matches Exact FA2 (3.44% in 13.71 s) at <strong>3.46% AbsRel</strong>.",
       lefts: {
-        iclust: { img: "assets/sliders/depth/eth5_moge_iclust.jpg", title: "i-clustered", sub: "AbsRel 5.09% · 4.91 s (2.8× vs. FA2)" },
-        exact:  { img: "assets/sliders/depth/eth5_moge_exact.jpg",  title: "Exact FlashAttention-2", sub: "AbsRel 3.44% · 13.71 s" },
+        iclust: { img: "assets/sliders/depth/eth5_moge_iclust.jpg", title: "i-clustered · Native 6K", sub: "AbsRel 5.09% · 4.91 s (2.8× vs. FA2)" },
+        exact:  { img: "assets/sliders/depth/eth5_moge_exact.jpg",  title: "Exact FlashAttention-2 · Native 6K", sub: "AbsRel 3.44% · 13.71 s" },
         rgb:    { img: "assets/sliders/depth/eth5_rgb.jpg",         title: "RGB Input Image", sub: "6048 × 4032 px (native)" }
       }
     },
     eth8_moge: {
       meros: "assets/sliders/depth/eth8_moge_meros.jpg",
-      rTitle: "MEROS r=8 Native 6K",
+      rTitle: "MEROS r=8 · Native 6K",
       rSub: "AbsRel 2.37% · 2.03 s (6.8× vs. FA2)",
       pill: "6.8× vs. Exact FA2 · 2.4× faster than i-clustered",
       meta: "<strong>ETH3D Corridor (6048×4032, 129k tokens, MoGe-3 ViT-G):</strong> i-clustered runs 2.4× slower (4.91 s) and dissolves the overhead pipes and hanging conduit box (AbsRel 4.25%). MEROS r=8 preserves hallway perspective and ceiling geometry at <strong>2.37% AbsRel</strong> (Exact FA2: 2.51% in 13.71 s).",
       lefts: {
-        iclust: { img: "assets/sliders/depth/eth8_moge_iclust.jpg", title: "i-clustered", sub: "AbsRel 4.25% · 4.91 s (2.8× vs. FA2)" },
-        exact:  { img: "assets/sliders/depth/eth8_moge_exact.jpg",  title: "Exact FlashAttention-2", sub: "AbsRel 2.51% · 13.71 s" },
+        iclust: { img: "assets/sliders/depth/eth8_moge_iclust.jpg", title: "i-clustered · Native 6K", sub: "AbsRel 4.25% · 4.91 s (2.8× vs. FA2)" },
+        exact:  { img: "assets/sliders/depth/eth8_moge_exact.jpg",  title: "Exact FlashAttention-2 · Native 6K", sub: "AbsRel 2.51% · 13.71 s" },
         rgb:    { img: "assets/sliders/depth/eth8_rgb.jpg",         title: "RGB Input Image", sub: "6048 × 4032 px (native)" }
       }
     },
     eth5_dav2: {
       meros: "assets/sliders/depth/eth5_dav2_meros.jpg",
-      rTitle: "MEROS r=8 Native 6K",
+      rTitle: "MEROS r=8 · Native 6K",
       rSub: "AbsRel 4.63% · 0.74 s (7.3× vs. FA2)",
       pill: "7.3× vs. Exact FA2 · 2.8× faster than i-clustered",
       meta: "<strong>ETH3D Pipes (6048×4032, 129k tokens, Depth Anything V2-L):</strong> i-clustered runs 2.8× slower than MEROS (2.08 s vs. 0.74 s) and blurs the pipes and valves into fog (AbsRel 8.43%). MEROS r=8 keeps every pipe edge sharp at <strong>4.63% AbsRel</strong> (Exact FA2: 4.32% in 5.43 s).",
       lefts: {
-        iclust: { img: "assets/sliders/depth/eth5_dav2_iclust.jpg", title: "i-clustered", sub: "AbsRel 8.43% · 2.08 s (2.6× vs. FA2)" },
-        exact:  { img: "assets/sliders/depth/eth5_dav2_exact.jpg",  title: "Exact FlashAttention-2", sub: "AbsRel 4.32% · 5.43 s" },
+        iclust: { img: "assets/sliders/depth/eth5_dav2_iclust.jpg", title: "i-clustered · Native 6K", sub: "AbsRel 8.43% · 2.08 s (2.6× vs. FA2)" },
+        exact:  { img: "assets/sliders/depth/eth5_dav2_exact.jpg",  title: "Exact FlashAttention-2 · Native 6K", sub: "AbsRel 4.32% · 5.43 s" },
         rgb:    { img: "assets/sliders/depth/eth5_rgb.jpg",         title: "RGB Input Image", sub: "6048 × 4032 px (native)" }
       }
     },
     mid13_dav2: {
       meros: "assets/sliders/depth/mid13_dav2_meros.jpg",
-      rTitle: "MEROS r=8 Native 3K",
+      rTitle: "MEROS r=8 · Native 3K",
       rSub: "AbsRel 3.29% · 85 ms (3.7× vs. FA2)",
       pill: "3.7× vs. Exact FA2 · 4.9× faster than i-clustered",
       meta: "<strong>Middlebury Playtable (2724×1848, Depth Anything V2-L):</strong> i-clustered takes 414 ms (slower than Exact FA2 at 315 ms) and blurs the wire mesh basket and tabletop toys (AbsRel 4.81%). MEROS r=8 runs in <strong>85 ms</strong> (4.9× faster than i-clustered) at <strong>3.29% AbsRel</strong>.",
       lefts: {
-        iclust: { img: "assets/sliders/depth/mid13_dav2_iclust.jpg", title: "i-clustered", sub: "AbsRel 4.81% · 414 ms (0.8× vs. FA2)" },
-        exact:  { img: "assets/sliders/depth/mid13_dav2_exact.jpg",  title: "Exact FlashAttention-2", sub: "AbsRel 3.63% · 315 ms" },
+        iclust: { img: "assets/sliders/depth/mid13_dav2_iclust.jpg", title: "i-clustered · Native 3K", sub: "AbsRel 4.81% · 414 ms (0.8× vs. FA2)" },
+        exact:  { img: "assets/sliders/depth/mid13_dav2_exact.jpg",  title: "Exact FlashAttention-2 · Native 3K", sub: "AbsRel 3.63% · 315 ms" },
         rgb:    { img: "assets/sliders/depth/mid13_rgb.jpg",         title: "RGB Input Image", sub: "2724 × 1848 px (native)" }
       }
     }
@@ -2485,7 +2485,7 @@
   const MAT_SCENES = {
     web: {
       meros: "assets/sliders/matting/web_meros_r8.jpg",
-      rTitle: "MEROS r=8 Native 6K",
+      rTitle: "MEROS r=8 · Native 6K",
       rSub: "1.54 s (5.0× vs. chunked) · |SAD|: 4.6",
       pill: "5.0× vs. Chunked Exact · Zero OOM",
       meta: "<strong>Transparent-460 Spiderweb (6000×4000, ViTMatte-B):</strong> Original ViTMatte-B OOMs on 288 GB B300; downscaling to 2048 px blurs silk filaments (|SAD| to Exact = 346.9). MEROS r=8 runs natively in <strong>1.54 s</strong> vs. 7.72 s chunked exact (<strong>5.0× faster</strong>), staying within <strong>4.6 SAD</strong> of Exact.",
@@ -2497,7 +2497,7 @@
     },
     hair: {
       meros: "assets/sliders/matting/hair_meros_r8.jpg",
-      rTitle: "MEROS r=8 Native 4.8K",
+      rTitle: "MEROS r=8 · Native 4.8K",
       rSub: "0.88 s (3.9× vs. chunked) · |SAD|: 5.6",
       pill: "3.9× vs. Chunked Exact · Preserves Fine Hair",
       meta: "<strong>PPM-100 Portrait Hair (4843×3229, ViTMatte-B):</strong> Original ViTMatte-B OOMs; downscaling to 2048 px loses wisps (|SAD| to Exact = 40.0) and trained MEMatte-B erodes dark hair regions. Training-free MEROS r=8 matches chunked Exact (3.45 s → <strong>0.88 s</strong>, 3.9× faster) within <strong>5.6 SAD</strong>.",
@@ -2554,7 +2554,7 @@
         mode === "exact" ? "assets/sliders/clouds/pipes_exact.webp" : "assets/sliders/clouds/pipes_local.webp";
       setBadge(
         "cloudBadgeLeft",
-        mode === "exact" ? "Exact FlashAttention-2" : "Local-Only (No Far Field)",
+        mode === "exact" ? "Exact FlashAttention-2 · Native 6K" : "Local-Only (No Far Field)",
         mode === "exact" ? "13.71 s encoder latency" : "Far-field tokens removed"
       );
     });
