@@ -526,7 +526,7 @@
       els.meros.meta.innerHTML = fmtX(`DINOv3-L · ${p.tokens}`);
       els.fa2.meta.innerHTML = fmtX(`DINOv3-L · ${p.tokens}`);
       els.van.meta.innerHTML = fmtX(`Explicit QKᵀ · ${p.tokens}`);
-      els.meros.badge.innerHTML = fmtX(p.vanS ? `5.3× vs. FA2 · 48.2× vs. Vanilla` : `${p.speedupVsFa2} faster · cos ${p.cos}`);
+      els.meros.badge.innerHTML = fmtX(p.vanS ? `5.3× vs. FA2 · 48.2× vs. Vanilla` : `${p.speedupVsFa2} faster than FA2`);
       els.fa2.badge.innerHTML = fmtX(p.vanS ? `Same map · 5.3× slower` : `Same map · ${p.speedupVsFa2} slower`);
       els.van.badge.innerHTML = fmtX(`Same map · 48.2× slower`);
       els.van.oomSub.innerHTML = fmtX(p.oomSub);
@@ -608,11 +608,11 @@
       if (allDone) {
         if (p.vanS === null) {
           els.verdictText.innerHTML = fmtX(
-            `<strong>Same dense DINOv3-L features (patch cosine ${p.cos}):</strong> MEROS r=8 finishes in <strong>${fmtVal(p.merosS, msMode)}</strong> vs. FlashAttention-2 in <strong>${fmtVal(p.fa2S, msMode)}</strong> (${p.speedupVsFa2} faster on ${p.gpu}), while Vanilla Attention runs out of memory.`
+            `<strong>Nearly identical dense DINOv3-L features with minimal difference:</strong> MEROS r=8 finishes in <strong>${fmtVal(p.merosS, msMode)}</strong> vs. FlashAttention-2 in <strong>${fmtVal(p.fa2S, msMode)}</strong> (${p.speedupVsFa2} faster on ${p.gpu}), while Vanilla Attention runs out of memory.`
           );
         } else {
           els.verdictText.innerHTML = fmtX(
-            `<strong>Same dense DINOv3-L features (patch cosine ${p.cos}):</strong> At 2K (${p.gpu}), MEROS r=8 finishes in <strong>21 ms</strong> vs. 111 ms FlashAttention-2 (5.3×) and <strong>1,003 ms</strong> Vanilla Attention (48.2×), before Vanilla hits OOM at 4K+.`
+            `<strong>Nearly identical dense DINOv3-L features with minimal difference:</strong> At 2K (${p.gpu}), MEROS r=8 finishes in <strong>21 ms</strong> vs. 111 ms FlashAttention-2 (5.3×) and <strong>1,003 ms</strong> Vanilla Attention (48.2×), before Vanilla hits OOM at 4K+.`
           );
         }
       } else if (mDone && fDone && p.vanS) {
