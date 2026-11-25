@@ -608,11 +608,11 @@
       if (allDone) {
         if (p.vanS === null) {
           els.verdictText.innerHTML = fmtX(
-            `<strong>Nearly identical dense DINOv3-L features with minimal difference:</strong> MEROS r=8 finishes in <strong>${fmtVal(p.merosS, msMode)}</strong> vs. FlashAttention-2 in <strong>${fmtVal(p.fa2S, msMode)}</strong> (${p.speedupVsFa2} faster on ${p.gpu}), while Vanilla Attention runs out of memory.`
+            `<strong>Nearly identical dense DINOv3-L features with negligible difference:</strong> MEROS r=8 finishes in <strong>${fmtVal(p.merosS, msMode)}</strong> vs. FlashAttention-2 in <strong>${fmtVal(p.fa2S, msMode)}</strong> (${p.speedupVsFa2} faster on ${p.gpu}), while Vanilla Attention runs out of memory.`
           );
         } else {
           els.verdictText.innerHTML = fmtX(
-            `<strong>Nearly identical dense DINOv3-L features with minimal difference:</strong> At 2K (${p.gpu}), MEROS r=8 finishes in <strong>21 ms</strong> vs. 111 ms FlashAttention-2 (5.3×) and <strong>1,003 ms</strong> Vanilla Attention (48.2×), before Vanilla hits OOM at 4K+.`
+            `<strong>Nearly identical dense DINOv3-L features with negligible difference:</strong> At 2K (${p.gpu}), MEROS r=8 finishes in <strong>21 ms</strong> vs. 111 ms FlashAttention-2 (5.3×) and <strong>1,003 ms</strong> Vanilla Attention (48.2×), before Vanilla hits OOM at 4K+.`
           );
         }
       } else if (mDone && fDone && p.vanS) {
