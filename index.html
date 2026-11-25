@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MEROS: The More a ViT Sees, the Less Precise It Needs to Attend</title>
+  <meta name="description" content="MEROS accelerates frozen high-resolution Vision Transformers up to 24.8x over Exact FlashAttention-2 (FA2) without training by keeping local tiles and global tokens exact while sampling the far field with reflected Horvitz–Thompson pairs." />
+
+  <!-- Fonts: Newsreader (Editorial Display), Inter (Precision UI), JetBrains Mono (Telemetry & Code) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,500&display=swap" rel="stylesheet" />
+
+  <!-- KaTeX for crisp publication-grade equations -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+
+  <link rel="stylesheet" href="styles.css?v=20261125c" />
+</head>
+<body>
+  <div class="scroll-progress" id="scrollProgress" aria-hidden="true"></div>
+
+  <!-- ===================== STICKY TOP NAVIGATION ===================== -->
+  <header class="site-nav">
+    <div class="container nav-inner">
+      <a href="#top" class="brand-mark" aria-label="MEROS Home">
+        <svg class="brand-icon" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect x="1" y="1" width="26" height="26" rx="6" fill="#0F172A"/>
+          <rect x="4" y="4" width="9" height="9" rx="2" fill="#2E6DA4"/>
+          <circle cx="21.5" cy="6.5" r="2.5" fill="#00A884"/>
+          <rect x="15" y="15" width="9" height="9" rx="2" fill="#1E293B" stroke="#475569" stroke-width="0.9"/>
+          <line x1="17.2" y1="17.2" x2="21.8" y2="21.8" stroke="#F4845F" stroke-width="1.2" stroke-dasharray="1.6 1.2"/>
+          <circle cx="17.2" cy="17.2" r="1.8" fill="#E05A2B"/>
+          <circle cx="21.8" cy="21.8" r="1.8" fill="#E05A2B"/>
+          <rect x="4" y="15" width="9" height="9" rx="2" fill="#1E293B" stroke="#475569" stroke-width="0.9"/>
+          <circle cx="10.8" cy="17.2" r="1.6" fill="#E05A2B"/>
+          <circle cx="6.2" cy="21.8" r="1.6" fill="#E05A2B"/>
+        </svg>
+        <span>MEROS</span>
+      </a>
+
+      <nav class="nav-links" aria-label="Page sections">
+        <a href="#overview">Overview</a>
+        <a href="#seattle">Iso-Latency Demo</a>
+        <a href="#lab">Interactive Lab</a>
+        <a href="#method">Method</a>
+        <a href="#results">Benchmarks</a>
+        <a href="#gallery">Visual Gallery</a>
+        <a href="#code">PyTorch</a>
+        <a href="#bibtex">BibTeX</a>
+      </nav>
+
+      <div class="nav-actions">
+        <!-- TODO: Replace href="#" with your arXiv / Paper PDF URL -->
+        <a href="#" class="nav-pill nav-pill--accent" data-placeholder="Paper link coming soon (replace href in index.html)">Paper</a>
+        <a href="https://github.com/CV-AC/MEROS" class="nav-pill" target="_blank" rel="noopener noreferrer">Code</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===================== HERO HEADER & TEASER ===================== -->
+  <main id="top">
+    <section class="hero" id="overview">
+      <div class="container">
+        <div class="hero-header">
+          <h1 class="paper-title">
+            <span class="brand-acronym">MEROS:</span> The More a ViT Sees, the Less Precise It Needs to&nbsp;Attend
+          </h1>
+
+          <!-- Authors -->
+          <div class="authors-row">
+            <span class="author-name">
+              <a href="mailto:hao.2.yu@oulu.fi" title="Corresponding author: hao.2.yu@oulu.fi">Hao Yu</a><sup class="aff-sup">1,2,3</sup>
+            </span>
+            <span class="author-name">
+              Feng Xue<sup class="aff-sup">3</sup>
+            </span>
+            <span class="author-name">
+              Hui Wei<sup class="aff-sup">1,2</sup>
+            </span>
+            <span class="author-name">
+              Guoying Zhao<sup class="aff-sup">1,2</sup>
+            </span>
+          </div>
+
+          <!-- Affiliations -->
+          <div class="affiliations-row">
+            <span class="affiliation-item"><sup>1</sup> ELLIS Institute Finland</span>
+            <span class="affiliation-item"><sup>2</sup> CMVS, University of Oulu</span>
+            <span class="affiliation-item"><sup>3</sup> MHUG, University of Trento</span>
+          </div>
+
+          <!-- Institution Logos -->
+          <div class="logos-strip" aria-label="Affiliated Institutions">
+            <div class="logo-item" title="ELLIS Institute Finland">
+              <img src="assets/logos/ellis-logo.png" alt="ELLIS Institute Finland" class="logo-ellis" />
+            </div>
+            <span class="logo-divider" aria-hidden="true"></span>
+            <div class="logo-item" title="CMVS, University of Oulu">
+              <img src="assets/logos/unioulu-logo.png" alt="University of Oulu" class="logo-oulu" />
+            </div>
+            <span class="logo-divider" aria-hidden="true"></span>
+            <div class="logo-item" title="MHUG, University of Trento">
+              <img src="assets/logos/mhug-logo.svg" alt="MHUG" class="logo-mhug" />
+              <span class="logo-mhug-label">MHUG</span>
+            </div>
+            <span class="logo-divider" aria-hidden="true"></span>
+            <div class="logo-item" title="University of Trento">
+              <img src="assets/logos/unitn-logo.png" alt="University of Trento" class="logo-unitn" />
+            </div>
+          </div>
+
+          <!-- Action Links (Paper + Code Placeholder + Interactive Anchors) -->
+          <div class="action-bar">
+            <!-- TODO: Replace href="#" with your arXiv / PDF URL when available -->
+            <a href="#" class="btn btn-primary" id="paper-link-btn" data-placeholder="Paper (arXiv) link coming soon (update href in index.html)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              <span>Paper</span>
+              <span class="btn-soon-tag">arXiv</span>
+            </a>
+
+            <a href="https://github.com/CV-AC/MEROS" class="btn btn-outline" id="code-link-btn" target="_blank" rel="noopener noreferrer">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.57.1.78-.25.78-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.03 11.03 0 0 1 5.79 0c2.21-1.49 3.18-1.18 3.18-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.42-2.7 5.39-5.26 5.68.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.66.79.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
+              <span>Code</span>
+              <span class="btn-soon-tag">GitHub</span>
+            </a>
+
+            <a href="#lab" class="btn btn-meros">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+              <span>Interactive Lab</span>
+            </a>
+
+            <a href="#code" class="btn btn-outline">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              <span>42-Line PyTorch</span>
+            </a>
+
+            <a href="#bibtex" class="btn btn-outline">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/></svg>
+              <span>BibTeX</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- 4 Headline Metrics (crystal-clear baselines and units) -->
+        <div class="metrics-ribbon">
+          <div class="metric-card" style="--card-accent: var(--meros);">
+            <div class="metric-value">24.8<span class="mul">&times;</span></div>
+            <div class="metric-label">Attention Speedup vs. FA2</div>
+            <div class="metric-sub">At 8K on NVIDIA B300, MEROS Attention runs 24.8<span class="mul">&times;</span> faster than Exact FA2 (8.4<span class="mul">&times;</span> vs. FA4) and reaches 20.2<span class="mul">&times;</span> whole-backbone speedup across 14 ViTs.</div>
+          </div>
+          <div class="metric-card" style="--card-accent: var(--local);">
+            <div class="metric-value">0.07<span class="metric-unit">mIoU</span></div>
+            <div class="metric-label">Near-Lossless Across 6 Tasks</div>
+            <div class="metric-sub">At $r=2$, MEROS loses 0.07 median mIoU at 3.04<span class="mul">&times;</span> whole-backbone speedup on segmentation, and matches exact matting, depth, 3D, &amp; VLMs.</div>
+          </div>
+          <div class="metric-card" style="--card-accent: var(--global);">
+            <div class="metric-value">&frac12;<span class="mul">&times;</span></div>
+            <div class="metric-label">Error Halves per 2<span class="mul">&times;</span> Image Size</div>
+            <div class="metric-sub">MEROS Attention gives an unbiased estimate of far-field attention: its error halves whenever image side doubles as <span class="nowrap">4<span class="mul">&times;</span></span> more far cells cancel noise.</div>
+          </div>
+          <div class="metric-card" style="--card-accent: #475569;">
+            <div class="metric-value">0</div>
+            <div class="metric-label">Training-Free &amp; General</div>
+            <div class="metric-sub">MEROS replaces each attention layer in frozen ViTs with a dense kernel, keeping all tokens and supporting position biases, attention biases, and masks.</div>
+          </div>
+        </div>
+
+        <!-- Half-Column Hero Operator Speedup Visual + Balanced TL;DR -->
+        <div class="hero-spotlight">
+          <div class="hero-speed-card" aria-label="Interactive MEROS operator speedup and error scaling chart">
+            <div class="hero-speed-head">
+              <div class="hero-speed-kicker">MEROS Attention Operator &middot; DINOv3-B (NVIDIA B300, BF16)</div>
+              <h2 class="hero-speed-title" id="heroSpeedTitle">
+                MEROS Attention is up to <span class="accent-num">24.8<span class="mul">&times;</span></span> Faster than Exact FA2
+              </h2>
+            </div>
+
+            <div class="hero-speed-toolbar">
+              <div class="dark-mini-pills" id="heroSpeedBaseBtns" role="tablist" aria-label="Hero speedup baseline">
+                <button class="dark-mini-btn active" data-hbase="fa2" role="tab">vs. FA2</button>
+                <button class="dark-mini-btn" data-hbase="vanilla" role="tab">vs. Vanilla</button>
+                <button class="dark-mini-btn" data-hbase="fa4" role="tab">vs. FA4</button>
+              </div>
+              <div class="dark-mini-pills" id="heroSpeedBudgetBtns" role="tablist" aria-label="Hero MEROS budget">
+                <button class="dark-mini-btn active" data-hr="8" role="tab">r = 8</button>
+                <button class="dark-mini-btn" data-hr="4" role="tab">r = 4</button>
+                <button class="dark-mini-btn" data-hr="2" role="tab">r = 2</button>
+              </div>
+            </div>
+
+            <svg id="heroSpeedSvg" viewBox="0 0 540 312" role="img" aria-label="Operator speedup rising from 4.0x at 1K to 24.8x at 8K over Exact FlashAttention-2, up to 145x over Vanilla Attention before Vanilla OOMs at 4K, and up to 8.44x over Exact FlashAttention-4"></svg>
+          </div>
+
+          <div class="hero-tldr-stack">
+            <div class="tldr-card">
+              <div class="tldr-tag tldr-tag--blue">Core Observation</div>
+              <h3>Why High-Res Attention Calls for Sampling</h3>
+              <p>
+                In high-resolution ViTs, attention is sharp only near each query, while <strong>72&ndash;90%</strong> of its mass spreads thinly across thousands of distant tokens. Because this far field is diffuse, the model does not need to read every distant key, but it must <strong>estimate the far field without bias</strong> rather than pruning or averaging it away.
+              </p>
+            </div>
+            <div class="tldr-card tldr-card--accent">
+              <div class="tldr-tag tldr-tag--meros">The Scaling Law</div>
+              <h3>MEROS Gets Faster &amp; More Accurate at High Res</h3>
+              <p>
+                <strong>MEROS Attention</strong> keeps local neighbors and global tokens exact, and estimates the far field with weighted reflected pairs in every <span class="nowrap">4<span class="mul">&times;</span>4</span> cell inside one dense softmax pass. Doubling the image side cancels sampling noise across <span class="nowrap">4<span class="mul">&times;</span></span> more independent distant cells, <strong>halving attention error (.180&nbsp;&rarr;&nbsp;.027 from 1K to 8K) while speeding up to <span class="nowrap">24.8<span class="mul">&times;</span></span></strong> on frozen ViTs with zero training or weight changes.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Teaser Figure -->
+        <div class="teaser-frame" style="margin-bottom:0;">
+          <div class="zoomable-wrap" data-lightbox="assets/figures/teaser.png" data-caption="Figure 1: MEROS for unbiased high-resolution acceleration. Top: In frozen DINOv3 at 2048 px, 96% of attention mass lies in the diffuse far field, where selection misses mass and clustering incurs a Jensen gap. MEROS keeps the local tile and global tokens exact, samples the far field with unbiased Horvitz–Thompson reflected pairs, and halves its error every time image side doubles. Bottom: Native-resolution speed and fidelity across segmentation, matting, 6K depth, and 8K VLM reasoning.">
+            <img src="assets/figures/teaser.png" alt="MEROS Teaser Figure: Diffuse far-field attention mass, error halving across resolutions, and native-resolution results across four vision tasks" />
+            <span class="zoom-badge">Click to zoom</span>
+          </div>
+          <p class="figure-caption">
+            <strong>Higher resolution lowers MEROS error while increasing speedup.</strong>
+            At 2048&nbsp;px in frozen DINOv3, a query's $16\times 16$ local tile holds just 1.6% of keys, while <strong>72&ndash;90%</strong> of attention mass spreads diffusely across the far field. Because MEROS estimates this far field unbiasedly with center-reflected pairs weighted by $r$, sampling noise cancels across distant cells: <strong>doubling the image side halves the error bound</strong> while accelerating attention up to <span class="nowrap">24.8<span class="mul">&times;</span></span> over Exact FlashAttention-2 (FA2) at 8K.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== LIVE WALL-CLOCK SPEED RACE (DINOV3-L, 4K-8K) ===================== -->
+    <section class="section section--alt section--race" id="race">
+      <div class="container">
+        <div class="section-header">
+          <div class="section-kicker">Wall-Clock Inference Race &middot; Frozen DINOv3-L (BF16, Batch&nbsp;1)</div>
+          <h2 class="section-title">MEROS Attention: Same Features, Fraction of the Wait</h2>
+          <p class="section-lead">
+            Watch frozen <strong>DINOv3-L</strong> extract dense features at real measured whole-backbone latencies (BF16, Batch&nbsp;1). <strong class="nowrap">MEROS ($r=8$)</strong> finishes in under a second while FlashAttention-2 takes up to 18.4&nbsp;s and Vanilla Attention runs out of memory, yet MEROS and FlashAttention-2 produce nearly identical features (<strong>cosine &gt; 0.991</strong>).
+          </p>
+        </div>
+
+        <div class="race-theater" id="raceTheater">
+          <div class="race-toolbar">
+            <div class="race-res-group" id="raceResBtns" role="tablist" aria-label="DINOv3-L resolution selector">
+              <button class="race-res-btn active" data-rkey="8k" role="tab" aria-selected="true">8K <span class="rr-sub">8192&sup2; &middot; B300</span></button>
+              <button class="race-res-btn" data-rkey="69k" role="tab" aria-selected="false">6.9K <span class="rr-sub">6912&times;4608 &middot; H200</span></button>
+              <button class="race-res-btn" data-rkey="4k" role="tab" aria-selected="false">4K <span class="rr-sub">4096&sup2; &middot; B300</span></button>
+              <button class="race-res-btn" data-rkey="2k" role="tab" aria-selected="false">2K <span class="rr-sub">2048&sup2; &middot; B300</span></button>
+            </div>
+            <div class="race-actions">
+              <div class="race-clock" id="raceClock" aria-live="off">
+                <span class="rc-dot"></span>
+                <span class="rc-val" id="raceClockVal">0.00 s</span>
+              </div>
+              <button class="race-ctrl-btn" id="raceSpeedBtn" type="button" title="Playback speed">1<span class="mul">&times;</span> real-time</button>
+              <button class="race-ctrl-btn" id="racePauseBtn" type="button">Pause</button>
+              <button class="race-ctrl-btn race-ctrl-btn--accent" id="raceReplayBtn" type="button">Replay &#8635;</button>
+            </div>
+          </div>
+
+          <div class="race-grid">
+            <!-- Lane 1: MEROS r=8 -->
+            <div class="race-card race-card--meros" id="raceCardMeros">
+              <div class="race-card-head">
+                <div>
+                  <div class="race-method">MEROS ($r=8$)</div>
+                  <div class="race-meta" id="raceMetaMeros">DINOv3-L &middot; 262k tokens</div>
+                </div>
+                <span class="race-status" id="raceStatMeros">Running</span>
+              </div>
+              <div class="race-viewport">
+                <img class="race-img-input" src="assets/showcase/dinov3_l__seattle_night__iso_vanilla_2k/input.jpg" alt="Input photograph" />
+                <div class="race-reveal" id="raceRevMeros">
+                  <img src="assets/showcase/dinov3_l__seattle_night__iso_vanilla_2k/main_right.jpg" alt="MEROS r=8 DINOv3-L dense feature map" />
+                </div>
+                <div class="race-scanline race-scanline--meros" id="raceScanMeros"></div>
+                <span class="race-vp-badge race-vp-badge--meros" id="raceBadgeMeros">19.1<span class="mul">&times;</span> faster &middot; cos 0.993</span>
+              </div>
+              <div class="race-prog-wrap">
+                <div class="race-prog-track"><div class="race-prog-fill race-prog-fill--meros" id="raceBarMeros"></div></div>
+                <div class="race-prog-foot">
+                  <span class="race-time" id="raceTimeMeros">0.00 s</span>
+                  <span class="race-note" id="raceNoteMeros">Target: 0.96 s</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Lane 2: FlashAttention-2 -->
+            <div class="race-card race-card--fa2" id="raceCardFa2">
+              <div class="race-card-head">
+                <div>
+                  <div class="race-method">FlashAttention-2</div>
+                  <div class="race-meta" id="raceMetaFa2">DINOv3-L &middot; 262k tokens</div>
+                </div>
+                <span class="race-status" id="raceStatFa2">Running</span>
+              </div>
+              <div class="race-viewport">
+                <img class="race-img-input" src="assets/showcase/dinov3_l__seattle_night__iso_vanilla_2k/input.jpg" alt="Input photograph" />
+                <div class="race-reveal" id="raceRevFa2">
+                  <img src="assets/showcase/dinov3_l__seattle_night__iso_vanilla_2k/main_right.jpg" alt="FlashAttention-2 DINOv3-L dense feature map" />
+                </div>
+                <div class="race-scanline race-scanline--fa2" id="raceScanFa2"></div>
+                <span class="race-vp-badge race-vp-badge--fa2" id="raceBadgeFa2">Same feature map &middot; 19.1<span class="mul">&times;</span> slower</span>
+              </div>
+              <div class="race-prog-wrap">
+                <div class="race-prog-track"><div class="race-prog-fill race-prog-fill--fa2" id="raceBarFa2"></div></div>
+                <div class="race-prog-foot">
+                  <span class="race-time" id="raceTimeFa2">0.00 s</span>
+                  <span class="race-note" id="raceNoteFa2">Target: 18.43 s</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Lane 3: Vanilla Attention -->
+            <div class="race-card race-card--van" id="raceCardVan">
+              <div class="race-card-head">
+                <div>
+                  <div class="race-method">Vanilla Attention</div>
+                  <div class="race-meta" id="raceMetaVan">Explicit $QK^\top$ &middot; 262k tokens</div>
+                </div>
+                <span class="race-status" id="raceStatVan">Allocating</span>
+              </div>
+              <div class="race-viewport">
+                <img class="race-img-input" src="assets/showcase/dinov3_l__seattle_night__iso_vanilla_2k/input.jpg" alt="Input photograph" />
+                <div class="race-reveal" id="raceRevVan">
+                  <img src="assets/showcase/dinov3_l__seattle_night__iso_vanilla_2k/main_right.jpg" alt="Vanilla Attention DINOv3-L dense feature map" />
+                </div>
+                <div class="race-scanline race-scanline--van" id="raceScanVan"></div>
+                <div class="race-oom-overlay" id="raceOomOverlay">
+                  <span class="race-oom-tag">CUDA Out of Memory</span>
+                  <span class="race-oom-sub" id="raceOomSub">Quadratic $N\times N$ matrix exceeds GPU VRAM</span>
+                </div>
+                <span class="race-vp-badge race-vp-badge--van" id="raceBadgeVan">48.2<span class="mul">&times;</span> slower</span>
+              </div>
+              <div class="race-prog-wrap">
+                <div class="race-prog-track"><div class="race-prog-fill race-prog-fill--van" id="raceBarVan"></div></div>
+                <div class="race-prog-foot">
+                  <span class="race-time" id="raceTimeVan">0.00 s</span>
+                  <span class="race-note" id="raceNoteVan">OOM at allocation</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="race-verdict" id="raceVerdict">
+            <span class="rv-dot" id="raceVerdictDot"></span>
+            <span id="raceVerdictText">Starting frozen DINOv3-L forward pass at 8192&times;8192 (NVIDIA B300, BF16, Batch 1)...</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== EQUAL-TIME-BUDGET MULTI-TASK DRAG-TO-COMPARE ===================== -->
+    <section class="section section--dark section--showcase" id="seattle">
+      <div class="container">
+        <div class="section-header">
+          <div class="section-kicker">Equal Time Budget &middot; 5 Vision Tasks &middot; Matched Measurements (NVIDIA H200)</div>
+          <h2 class="section-title">Same Time Budget, Dramatically Finer Vision</h2>
+          <p class="section-lead">
+            Every pair below reports the <strong>exact measured forward latency</strong> of the displayed left and right images on the same NVIDIA H200 GPU (BF16, Batch&nbsp;1). Across all 22 curated comparisons (including <strong>DINOv3-style fine-grained perception</strong>: query maps, perceptual UMAP manifolds, and label-free K-Means parts), <strong>MEROS ($r=8$) runs in equal or less time</strong> while encoding <strong>up to <span class="nowrap">11.1<span class="mul">&times;</span></span> more pixels</strong> across DINOv3-L/B, DINOv2-L, SAM ViT-H/L, ViTMatte-B, and Depth Anything V2-L.
+          </p>
+        </div>
+
+        <div class="showcase-controls">
+          <div class="showcase-track-row" id="showcaseTrackTabs" role="tablist" aria-label="Vision task track selector"></div>
+          <div class="showcase-thumb-grid" id="showcaseCaseTabs" role="tablist" aria-label="Case and backbone selector"></div>
+        </div>
+
+        <div class="showcase-stage-frame">
+          <!-- Identical orthogonal signed-permutation PCA color filters (applied equally to left & right) -->
+          <svg width="0" height="0" style="position:absolute;pointer-events:none;" aria-hidden="true">
+            <defs>
+              <!-- (-PC3, +PC1, -PC2): Obsidian dark ground + copper-orange structure -->
+              <filter id="pca-obsidian" color-interpolation-filters="sRGB">
+                <feColorMatrix type="matrix" values="
+                   0     0    -1.16  0  1.04
+                   1.12  0     0     0 -0.06
+                   0    -1.16  0     0  1.04
+                   0     0     0     1  0" />
+              </filter>
+              <!-- (-PC2, +PC3, -PC1): Deep indigo night sky + luminous coral/cyan skyline -->
+              <filter id="pca-nightsky" color-interpolation-filters="sRGB">
+                <feColorMatrix type="matrix" values="
+                   0    -1.08  0     0  1.02
+                   0     0     1.10  0 -0.05
+                  -1.08  0     0     0  1.02
+                   0     0     0     1  0" />
+              </filter>
+              <!-- (-PC1, -PC2, -PC3): Pure sign flip for obsidian sky + molten gold structure -->
+              <filter id="pca-ember" color-interpolation-filters="sRGB">
+                <feColorMatrix type="matrix" values="
+                  -1.12  0     0     0  1.05
+                   0    -1.12  0     0  1.05
+                   0     0    -1.12  0  1.05
+                   0     0     0     1  0" />
+              </filter>
+            </defs>
+          </svg>
+
+          <div class="showcase-stage-head">
+            <div class="showcase-view-row">
+              <div class="pill-group" id="showcaseViewTabs" role="tablist" aria-label="Visualization mode selector"></div>
+              <button class="btn-ghost-dark" id="showcaseInputBtn" type="button">
+                Original Photo &nearr;
+              </button>
+            </div>
+            <div class="showcase-meta-bar">
+              <div class="showcase-view-caption" id="showcaseViewDesc">
+                <span class="svc-dot" aria-hidden="true"></span>
+                <span class="svc-text">Shared 3-component PCA projection of dense patch tokens onto RGB.</span>
+              </div>
+              <div class="showcase-inspect-tools">
+                <button class="btn-tool-dark active" id="showcasePaletteBtn" type="button" aria-pressed="true" title="Apply an identical orthogonal ±PC color palette to both sides for sharper visual separation">
+                  <span class="btd-swatch" aria-hidden="true"></span>
+                  <span class="btd-label">High-Contrast PCA</span>
+                </button>
+                <button class="btn-tool-dark" id="showcaseLoupeBtn" type="button" aria-pressed="false" title="Toggle 2.6x split magnifier lens over the comparison image">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                  <span>2.6&times; Loupe</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="compare-stage" id="seattleCompare" tabindex="0" aria-label="Drag to compare baseline vs. MEROS r=8 at equal or lower latency">
+            <img class="compare-img-base" id="seattleImgRight" src="assets/showcase/dinov3_b__seattle_night__iso_vanilla_2k/main_right.jpg" alt="MEROS r=8 high-resolution output" />
+            <div class="compare-overlay">
+              <img id="seattleImgLeft" src="assets/showcase/dinov3_b__seattle_night__iso_vanilla_2k/main_left.jpg" alt="Equal-time baseline output" />
+            </div>
+            <div class="compare-badge compare-badge--left" id="seattleBadgeLeft">
+              <span class="cb-title">Vanilla Attention &middot; 2304&times;1536</span>
+              <span class="cb-sub">355 ms &middot; 3.5 MP</span>
+            </div>
+            <div class="compare-badge compare-badge--right" id="seattleBadgeRight">
+              <span class="cb-title">MEROS r=8 &middot; 7680&times;5120</span>
+              <span class="cb-sub">353 ms &middot; 11.11<span class="mul">&times;</span> pixels</span>
+            </div>
+            <div class="compare-divider">
+              <div class="compare-handle" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><polyline points="15 7 20 12 15 17"/></svg>
+              </div>
+            </div>
+            <div class="compare-loupe" id="seattleLoupe" aria-hidden="true">
+              <div class="loupe-half loupe-half--left" id="seattleLoupeLeft"></div>
+              <div class="loupe-half loupe-half--right" id="seattleLoupeRight"></div>
+              <div class="loupe-split"></div>
+              <div class="loupe-tags"><span>Base</span><span>MEROS</span></div>
+            </div>
+            <span class="compare-hint">&larr; Drag or use arrow keys &rarr;</span>
+          </div>
+        </div>
+
+        <div class="telemetry-strip" id="seattleTelemetry">
+          <div class="telemetry-cell">
+            <div class="telemetry-label" id="telResLabel">Resolution &amp; Pixels</div>
+            <div class="telemetry-val" id="telRes">11.11<span class="mul">&times;</span> pixels</div>
+            <div class="telemetry-sub" id="telMp">2304&times;1536 &rarr; 7680&times;5120</div>
+          </div>
+          <div class="telemetry-cell">
+            <div class="telemetry-label" id="telTimeLabel">Matched Forward Latency</div>
+            <div class="telemetry-val telemetry-val--accent" id="telTime">355 ms &rarr; 353 ms</div>
+            <div class="telemetry-sub" id="telTimeSub">MEROS matches latency on NVIDIA H200 (BF16)</div>
+          </div>
+          <div class="telemetry-cell">
+            <div class="telemetry-label" id="telQualLabel">High-Res Fidelity vs. Exact</div>
+            <div class="telemetry-val" id="telQual">cos 0.995</div>
+            <div class="telemetry-sub" id="telQualSub">Patch cosine vs. Exact FA2 @ 7680&times;5120</div>
+          </div>
+          <div class="telemetry-cell">
+            <div class="telemetry-label" id="telRefLabel">Same-Res Exact FA2 @ 7680&times;5120</div>
+            <div class="telemetry-val" id="telRef">8.09<span class="mul">&times;</span> faster</div>
+            <div class="telemetry-sub" id="telRefSub">2.85 s FA2 &rarr; 353 ms MEROS &middot; Vanilla OOM</div>
+          </div>
+        </div>
+
+        <!-- DINOv3-Style Fine-Grained Perception Quick-Inspect Triptych -->
+        <div class="fg-triptych-block">
+          <div class="fg-triptych-head">
+            <div class="fg-triptych-kicker">DINOv3-Style Fine-Grained Perception &middot; Equal Time Budget</div>
+            <div class="fg-triptych-note">Left half: Equal-time Baseline &nbsp;&middot;&nbsp; Right half: MEROS ($r=8$) &nbsp;&middot;&nbsp; Click any card to inspect interactively above</div>
+          </div>
+          <div class="fg-triptych-grid" id="showcaseHighlights"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== INTERACTIVE REAL-FEATURE & WEIGHT LAB ===================== -->
+    <section class="section" id="lab">
+      <div class="container">
+        <div class="section-header">
+          <div class="section-kicker">Interactive Real-Feature &amp; Weight Explainer</div>
+          <h2 class="section-title">Explore MEROS Sampling, Weights &amp; Real DINOv3&nbsp;Features</h2>
+          <p class="section-lead">
+            Powered by real 2048&times;2048 DINOv3-B Layer&nbsp;11 attention weights and UMAP feature maps from Figure&nbsp;1. Click any query pin or far $4\times 4$ cell on the image, switch budgets $r\in\{1,2,4,8\}$, and toggle MEROS's signature <strong>Horvitz–Thompson weight ($\times r$ / $+\log r$)</strong> on or off to see why weighting keeps the far field unbiased.
+          </p>
+        </div>
+
+        <div class="lab-shell">
+          <!-- Left: Real DINOv3 Feature/Attention Interactive Canvas + Live 4x4 Cell Weight Inspector -->
+          <div class="lab-canvas-card">
+            <div class="lab-mode-bar">
+              <div class="pill-group" id="labBackdropBtns" role="tablist" aria-label="Canvas visualization mode">
+                <button class="pill-btn active" data-mode="feature" role="tab">Real Features</button>
+                <button class="pill-btn" data-mode="attention" role="tab">Photo + Attn</button>
+                <button class="pill-btn" data-mode="error" role="tab">Error (1&minus;cos)</button>
+                <button class="pill-btn" data-mode="schematic" role="tab">3&times;3 Cell Zoom</button>
+              </div>
+              <button class="pill-btn" id="labReseedBtn" style="border:1px solid var(--border);background:var(--bg);font-size:12px;padding:6px 11px;">
+                New Draw &#x21bb;
+              </button>
+            </div>
+
+            <div class="lab-legend">
+              <span class="legend-item"><span class="legend-swatch legend-swatch--local"></span>Exact Tile $\mathcal{L}_i$ ($\times 1$)</span>
+              <span class="legend-item"><span class="legend-swatch legend-swatch--far"></span>Far Pairs $\mathcal{F}_i$ (<span id="labLegendWeight">&times;8</span>)</span>
+              <span class="legend-item"><span class="legend-swatch legend-swatch--cell"></span>Inspected $4\times 4$ Cell</span>
+            </div>
+
+            <div class="canvas-frame">
+              <canvas id="merosLabCanvas" aria-label="Interactive MEROS real DINOv3 feature map and attention weight visualization"></canvas>
+            </div>
+
+            <!-- Live Zoomed 4x4 Far-Cell + Real Far-Mass Recovery Inspector -->
+            <div class="cell-inspector">
+              <div class="cell-mini-wrap">
+                <canvas id="cellInspectorCanvas" width="192" height="192" aria-label="Zoomed 4x4 far cell weights"></canvas>
+                <div class="cell-mini-cap" id="cellMiniCap">Cell (12, 18) &middot; 1 pair &times;8</div>
+              </div>
+              <div class="mass-compare">
+                <div class="mass-head">
+                  <span id="massQueryLabel">Live DINOv3-B L11 Far-Mass Recovery (Cow Ear)</span>
+                  <span class="weight-pill" id="massWeightPill">Far Weight: &times;8 (+2.079)</span>
+                </div>
+                <div class="mass-bar-row">
+                  <span class="mass-bar-lbl">Exact Far Mass</span>
+                  <div class="mass-bar-track"><div class="mass-bar-fill mass-bar-fill--exact" id="massBarExact" style="width:95.8%"></div></div>
+                  <span class="mass-bar-num" id="massNumExact">95.8%</span>
+                </div>
+                <div class="mass-bar-row">
+                  <span class="mass-bar-lbl" id="massEstLabel">MEROS (&times;8)</span>
+                  <div class="mass-bar-track"><div class="mass-bar-fill mass-bar-fill--meros" id="massBarEst" style="width:95.6%"></div></div>
+                  <span class="mass-bar-num" id="massNumEst">95.6%</span>
+                </div>
+                <div class="mass-foot" id="massFootNote">
+                  Click any white query dot to switch queries, or click any far region to inspect its $4\times 4$ cell. On this Cow image, MEROS $r=8$ achieves median feature error <strong>1&minus;cos = 0.0058</strong> vs. <strong>0.0987</strong> without weight $\times 8$ (<strong>17<span class="mul">&times;</span> worse</strong>).
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Interactive Controls & Live Mathematical Telemetry -->
+          <div class="lab-panel-card">
+            <div class="lab-control-block">
+              <div class="lab-control-label">
+                <span>1. Far-Field Budget ($r$)</span>
+                <span class="val-pill" id="labBudgetTag">1 pair / cell (12.5%)</span>
+              </div>
+              <div class="lab-btn-row" id="labBudgetBtns">
+                <button class="lab-opt" data-r="1">Exact (r=1)</button>
+                <button class="lab-opt" data-r="2">r = 2</button>
+                <button class="lab-opt" data-r="4">r = 4</button>
+                <button class="lab-opt lab-opt--meros active" data-r="8">r = 8</button>
+              </div>
+            </div>
+
+            <div class="lab-control-block">
+              <div class="lab-control-label">
+                <span>2. Far-Field Weight ($\times r$)</span>
+                <span class="val-pill" id="labWeightTag">Unbiased (+log 8)</span>
+              </div>
+              <div class="lab-btn-row lab-btn-row--2" id="labWeightBtns">
+                <button class="lab-opt lab-opt--meros active" data-weight="on">Weight &times;r ON (+log r)</button>
+                <button class="lab-opt lab-opt--danger" data-weight="off">Drop Weight (&times;1 Biased)</button>
+              </div>
+            </div>
+
+            <div class="lab-control-block">
+              <div class="lab-control-label">
+                <span>3. Sampling Geometry</span>
+                <span class="val-pill" id="labGeomTag">Cancels affine trends</span>
+              </div>
+              <div class="lab-btn-row lab-btn-row--3" id="labGeomBtns">
+                <button class="lab-opt lab-opt--meros active" data-geom="meros">Reflected Pairs</button>
+                <button class="lab-opt" data-geom="random">Simple Random</button>
+                <button class="lab-opt" data-geom="window">Local Only</button>
+              </div>
+            </div>
+
+            <div class="lab-control-block">
+              <div class="lab-control-label">
+                <span>4. Input Resolution (DINOv3-B, patch 16)</span>
+                <span class="val-pill" id="labResTag">65,536 patches</span>
+              </div>
+              <div class="lab-btn-row" id="labResBtns">
+                <button class="lab-opt" data-res="1024">1K</button>
+                <button class="lab-opt" data-res="2048">2K</button>
+                <button class="lab-opt active" data-res="4096">4K</button>
+                <button class="lab-opt" data-res="8192">8K</button>
+              </div>
+            </div>
+
+            <!-- Live Readouts -->
+            <div class="lab-readout-grid">
+              <div class="lab-stat">
+                <div class="lab-stat-k">Keys Read per Query</div>
+                <div class="lab-stat-v lab-stat-v--blue" id="labKeysRead">8,421</div>
+                <div class="lab-stat-s" id="labKeysReduce">7.78<span class="mul">&times;</span> fewer than 65,541</div>
+              </div>
+              <div class="lab-stat">
+                <div class="lab-stat-k">Far Key Weight / Logit Shift</div>
+                <div class="lab-stat-v lab-stat-v--meros" id="labLogitBias">&times;8 (+2.079)</div>
+                <div class="lab-stat-s" id="labWeightSub">Unbiased Horvitz–Thompson weight</div>
+              </div>
+              <div class="lab-stat">
+                <div class="lab-stat-k">Operator Speedup vs. Exact FA2</div>
+                <div class="lab-stat-v lab-stat-v--meros" id="labSpeedup">21.0<span class="mul">&times;</span></div>
+                <div class="lab-stat-s" id="labSpeedupSub">DINOv3-B L6 on B300 (7.1<span class="mul">&times;</span> vs. FA4)</div>
+              </div>
+              <div class="lab-stat">
+                <div class="lab-stat-k">Relative Error to FP32 Exact</div>
+                <div class="lab-stat-v" id="labError">0.052</div>
+                <div class="lab-stat-s" id="labErrorSub">Measured on DIV8K (halves per 2<span class="mul">&times;</span> side)</div>
+              </div>
+            </div>
+
+            <!-- Live SVG Error Scaling Curve -->
+            <div class="lab-chart-box">
+              <div class="lab-chart-title">
+                <span>Measured Operator Error Halves per Side Doubling</span>
+                <small>DINOv3-B layer 6 &middot; DIV8K</small>
+              </div>
+              <svg id="labScalingSvg" viewBox="0 0 420 144" role="img" aria-label="Relative attention error across 1K, 2K, 4K, 6K, and 8K resolutions"></svg>
+            </div>
+
+            <div class="lab-explainer" id="labExplainer">
+              <strong>Reflected pairs + weight &times;8:</strong> Each far $4\times 4$ cell keeps 1 center-reflected pair $(u, 15{-}u)$ weighted by $r=8$ ($+\ln 8 = +2.079$ logit bias). Switch to <em>Error (1&minus;cos)</em> and click <em>Drop Weight</em> to see real DINOv3-B feature error jump 17&times;.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== METHOD & THEORETICAL GUARANTEES ===================== -->
+    <section class="section section--alt" id="method">
+      <div class="container">
+        <div class="section-header">
+          <div class="section-kicker">Method &amp; Theory</div>
+          <h2 class="section-title">MEROS Attention: Unbiased Estimation in One Dense&nbsp;Pass</h2>
+          <p class="section-lead">
+            MEROS splits each query's keys into three disjoint roles (the sharp local tile $\mathcal{L}_i$, the global tokens $\mathcal{G}$, and the diffuse far field $\mathcal{F}_i$) and evaluates all three under a single unified softmax normalizer with zero runtime host synchronization.
+          </p>
+        </div>
+
+        <div class="pillars-grid">
+          <div class="pillar-card">
+            <div class="pillar-num pillar-num--local">01</div>
+            <h3>Exact Local Peak &amp; Global Anchor</h3>
+            <p>
+              Each query computes its full $16\times 16$ local tile $\mathcal{L}_i$ and all global tokens $\mathcal{G}$ (CLS and registers) exactly. Keeping this exact mass in the softmax denominator prevents normalization blow-up and bounds output error even on worst-case draws (Proposition&nbsp;3).
+            </p>
+          </div>
+          <div class="pillar-card">
+            <div class="pillar-num pillar-num--far">02</div>
+            <h3>Reflected-Pair Horvitz–Thompson</h3>
+            <p>
+              In each distant $4\times 4$ cell, MEROS draws $8/r$ center-symmetric token pairs (e.g., 2 of 16 tokens at $r=8$) and weights them by $r$. Symmetric pairing cancels linear spatial trends exactly while keeping samples nested across $r\in\{8,4,2\}$ (Proposition&nbsp;2).
+            </p>
+          </div>
+          <div class="pillar-card">
+            <div class="pillar-num pillar-num--global">03</div>
+            <h3>Static Dense Kernel at 54% Peak</h3>
+            <p>
+              Sampled far keys are gathered once per head and shared across all 256 queries of a tile using static dense tensor shapes. The kernel runs in one CUDA graph, natively supports RoPE, relative position biases, and attention masks, and sustains <strong>51&ndash;54% of B300 dense BF16 peak</strong>.
+            </p>
+          </div>
+        </div>
+
+        <!-- Main Architecture Diagram -->
+        <div class="figure-card">
+          <div class="figure-card-head">
+            <h3>Figure 2: MEROS Architecture &amp; Far-Field Anatomy</h3>
+            <span class="figure-card-tag">Click figure to enlarge</span>
+          </div>
+          <div class="zoomable-wrap" data-lightbox="assets/figures/method.png" data-caption="Figure 2: Overview of MEROS. (1) Stratified center-reflected pair sampling in every 4x4 cell with nested budgets r=8, 4, 2. (2) One unified softmax over the exact local tile, exact global tokens, and +log(r) shifted far-field samples. (3) One dense attention pass per tile. (a-d) Diffuse far mass, unbiased weight r, linear-trend cancellation, and error halving as resolution scales.">
+            <img src="assets/figures/method.png" alt="Overview diagram of MEROS attention mechanism, reflected pair sampling, and unified softmax" />
+            <span class="zoom-badge">Click to zoom</span>
+          </div>
+          <p class="figure-caption">
+            <strong>MEROS Attention runs in one unified softmax with zero extra weights.</strong>
+            (1)&nbsp;Per-cell reflected pair sampling nests cleanly across $r\in\{8,4,2\}$. (2)&nbsp;Every tile executes one dense FlashAttention-style pass over exact local keys, exact globals, and $+\log r$-weighted far keys (masking $\mathcal{S}\cap\mathcal{L}_i$ with $-\infty$). (a&ndash;d)&nbsp;Far-field mass dominates at high resolution, while reflected pairs cancel linear variation across smooth features.
+          </p>
+        </div>
+
+        <!-- 3 Core Equations -->
+        <div class="equations-grid">
+          <div class="eq-card">
+            <div class="eq-label">Eq. (1): Unified Softmax Estimator</div>
+            <div class="eq-math">
+              $$\hat{\mathbf{o}}_i = \frac{\mathbf{A}_{\mathcal{L}_i} + \mathbf{A}_{\mathcal{G}} + \hat{\mathbf{A}}_{\mathcal{F}_i}}{Z_{\mathcal{L}_i} + Z_{\mathcal{G}} + \hat{Z}_{\mathcal{F}_i}}$$
+            </div>
+            <p class="eq-note">
+              Because $r\,e^{s}=e^{s+\log r}$, Horvitz–Thompson weighting is simply a constant $+\log r$ additive bias on far logits inside standard SDPA. Setting $r=1$ recovers exact attention identically.
+            </p>
+          </div>
+          <div class="eq-card">
+            <div class="eq-label">Theorem 1 &amp; Corollary 1: Error Halving</div>
+            <div class="eq-math">
+              $$\sqrt{\mathbb{E}\|\hat{\mathbf{o}}-\mathbf{o}\|^2} \;\le\; 2\sqrt{2}\,\pi_{\mathcal{F}}\,D\,\sqrt{\frac{r}{n_{\mathrm{eff}}}}$$
+            </div>
+            <p class="eq-note">
+              Here $\pi_{\mathcal{F}}$ is far-field attention mass, $D$ is value spread, and $n_{\mathrm{eff}}$ is the effective far-cell count. Since $n_{\mathrm{eff}}$ grows with total far cells $|\mathcal{C}_i|=(N-256)/16$, doubling image side quadruples $n_{\mathrm{eff}}$ and <strong>halves the RMS error bound</strong>.
+            </p>
+          </div>
+          <div class="eq-card">
+            <div class="eq-label">Proposition 2 &amp; 3: Pairs &amp; Anchor</div>
+            <div class="eq-math">
+              $$\mathrm{MSE}_{\mathrm{pair}} = \tfrac{15}{7}V^+, \qquad \|\hat{\mathbf{o}}-\mathbf{o}\| \le \frac{\|\mathbf{U}\|}{\pi_{\mathrm{ex}}}$$
+            </div>
+            <p class="eq-note">
+              Center-reflected pairs cancel linear/odd variation $V^-$ inside each cell (leaving only even curvature <span class="nowrap">$V^+$),</span> while keeping local and global tokens exact floors the softmax denominator at $\pi_{\mathrm{ex}}$ on every draw.
+            </p>
+          </div>
+        </div>
+
+        <!-- Stacked Full-Width Theory & Hardware Evidence (Zero Awkward Whitespace!) -->
+        <div class="stacked-evidence">
+          <div class="figure-card" style="margin-bottom:0;">
+            <div class="figure-card-head">
+              <h3>Empirical Verification on 7,000 Pretrained Query&ndash;Head Pairs</h3>
+              <span class="figure-card-tag">DINOv3-B &middot; MAE-L &middot; DINOv2-L w/ registers</span>
+            </div>
+            <div class="zoomable-wrap" data-lightbox="assets/figures/theory_check.png" data-caption="Empirical verification of MEROS theory across 7,000 random query-head pairs from DINOv3-B, MAE-L, and DINOv2-L with registers: (a) Theorem 1 holds across every draw, (b) exact variance matches measurement, (c) reflected pairs lower MSE over simple random sampling, (d) n_eff grows linearly with |C|, (e) bias stays negligible, (f) error scales as sqrt(r-1), (g-h) far mass grows and error halves per doubling.">
+              <img src="assets/figures/theory_check.png" alt="Eight-panel verification of MEROS theoretical bounds on pretrained ViTs" />
+              <span class="zoom-badge">Click to zoom</span>
+            </div>
+            <p class="figure-caption">
+              <strong>MEROS Attention theory holds across frozen DINOv3-B, MAE-L, and DINOv2-L.</strong>
+              Across 7,000 query&ndash;head draws, every sample obeys Theorem&nbsp;1's error bound, measured variance matches our closed-form formula, reflected pairs beat uniform random sampling, and output error scales by <strong>0.52&ndash;0.53<span class="mul">&times;</span> per side doubling</strong>.
+            </p>
+          </div>
+
+          <div class="figure-card" style="margin-bottom:0;">
+            <div class="figure-card-head">
+              <h3>MEROS Attention Matches FlashAttention-4 Efficiency on NVIDIA&nbsp;B300</h3>
+              <span class="figure-card-tag">Nsight Compute &middot; 51&ndash;54% Dense BF16 Peak</span>
+            </div>
+            <div class="zoomable-wrap" data-lightbox="assets/figures/kernel_profile.png" data-caption="NVIDIA Nsight hardware profile on B300 (DINOv3-B layer 6): (a) MEROS CuTe kernel sustains 51-54% of 2.25 PFLOP/s dense BF16 peak vs 49-50% for FA4; (b) patch-query kernel accounts for 84-99% of GPU time; (c) warp stall breakdown matches FA4 (bound by softmax exponentials and pipeline waits, with 90-98% L2 hit rate and 252-256 FLOP/byte intensity).">
+              <img src="assets/figures/kernel_profile.png" alt="Nsight Compute hardware profile on NVIDIA B300 comparing MEROS and FlashAttention-4" />
+              <span class="zoom-badge">Click to zoom</span>
+            </div>
+            <p class="figure-caption">
+              <strong>MEROS matches FlashAttention-4's hardware efficiency per read key.</strong>
+              Because all 256 queries of a tile share every loaded key, MEROS sustains <strong>252&ndash;256 FLOP/byte</strong> arithmetic intensity, achieves a <strong>90&ndash;98% L2 hit rate</strong>, and reaches <strong>51&ndash;54% of B300 dense BF16 peak</strong> (vs. 49&ndash;50% for FA4), translating key reduction directly into wall-clock speedup.
+            </p>
+            <div class="callout-banner callout-banner--meros" style="margin:14px 0 0;padding:12px 16px;">
+              <div>
+                <strong>MEROS throughput scales at larger batches too:</strong> At batch 16 ($2048^2$ tiles on NVIDIA B300), DINOv3-B with MEROS $r=8$ processes <strong>135 tiles/sec</strong> vs. <strong>25.0 tiles/sec</strong> for Exact FlashAttention-2 (<strong>5.40<span class="mul">&times;</span> end-to-end whole-backbone speedup over Exact FA2</strong>).
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== INTERACTIVE BENCHMARK EXPLORER ===================== -->
+    <section class="section" id="results">
+      <div class="container">
+        <div class="section-header">
+          <div class="section-kicker">Comprehensive Evaluation</div>
+          <h2 class="section-title">MEROS Is Faster &amp; More Faithful Across 14&nbsp;ViTs &amp; 6&nbsp;Tasks</h2>
+          <p class="section-lead">
+            In every experiment, MEROS Attention replaces global self-attention in frozen pretrained checkpoints without retraining, fine-tuning, or calibration. All speedups below state their exact baseline (Exact FlashAttention-2 (FA2) or FlashAttention-4 (FA4)) and scope (operator vs. whole backbone).
+          </p>
+        </div>
+
+        <div class="bench-tabs" role="tablist" aria-label="Benchmark domains" id="benchTabs">
+          <button class="bench-tab active" data-tab="speed" role="tab" aria-selected="true">14 ViTs &amp; Speed&ndash;Accuracy</button>
+          <button class="bench-tab" data-tab="seg" role="tab" aria-selected="false">Semantic Segmentation</button>
+          <button class="bench-tab" data-tab="depth" role="tab" aria-selected="false">6K Depth &amp; 3D</button>
+          <button class="bench-tab" data-tab="matting" role="tab" aria-selected="false">Native-Res Matting</button>
+          <button class="bench-tab" data-tab="vlm" role="tab" aria-selected="false">8K VLMs (HR-Bench)</button>
+          <button class="bench-tab" data-tab="dis" role="tab" aria-selected="false">DIS5K &amp; Ablations</button>
+        </div>
+
+        <!-- TAB 1: 14 ViT Backbones & Speed-Accuracy Pareto -->
+        <div class="bench-panel active" id="panel-speed" role="tabpanel">
+          <div class="chart-card">
+            <div class="chart-card-header">
+              <div>
+                <h3>MEROS Whole-Backbone Speedup on 14 Frozen ViTs (NVIDIA B300, Batch&nbsp;1)</h3>
+                <p id="backboneChartSub">Whole-backbone speedup of MEROS r=8 over Exact FlashAttention-2 (FA2) at 8K resolution (13.9&times; &ndash; 20.2&times;).</p>
+              </div>
+              <div class="chart-controls-wrap">
+                <div class="pill-group" id="bbBaseToggle">
+                  <button class="pill-btn active" data-base="fa2">vs. Exact FA2</button>
+                  <button class="pill-btn" data-base="fa4">vs. FA4</button>
+                </div>
+                <div class="pill-group" id="bbResToggle">
+                  <button class="pill-btn" data-res="1K">1K</button>
+                  <button class="pill-btn" data-res="2K">2K</button>
+                  <button class="pill-btn" data-res="4K">4K</button>
+                  <button class="pill-btn active" data-res="8K">8K</button>
+                </div>
+                <div class="pill-group" id="bbBudgetToggle">
+                  <button class="pill-btn" data-r="r2">r=2</button>
+                  <button class="pill-btn" data-r="r4">r=4</button>
+                  <button class="pill-btn active" data-r="r8">r=8</button>
+                </div>
+              </div>
+            </div>
+            <div class="backbone-bars" id="backboneBars"></div>
+          </div>
+
+          <div class="figure-card">
+            <div class="zoomable-wrap" data-lightbox="assets/figures/speed_pareto.png" data-caption="Figure 3: Comparison with 11 training-free acceleration methods on DINOv3-B. Shaded region is slower and less accurate than MEROS. MEROS dominates 26/28 baseline variants at 2K and 24/25 at 4K, achieving 4.0-24.8x operator speedup over Exact FlashAttention-2 (FA2) while halving error every resolution doubling.">
+              <img src="assets/figures/speed_pareto.png" alt="Speed-accuracy Pareto frontier comparing MEROS against 11 training-free attention baselines" />
+              <span class="zoom-badge">Click to zoom</span>
+            </div>
+            <p class="figure-caption">
+              <strong>MEROS Attention Pareto-dominates 11 training-free attention baselines on frozen DINOv3-B.</strong>
+              Across operator speed&ndash;error, feature cosine, 4K segmentation, and 3K depth, at least one MEROS budget is both faster and more accurate than <strong>26 of 28</strong> baseline configs at 2K and <strong>24 of 25</strong> at 4K (the only two exceptions, two PISA variants, run 2.2&ndash;2.4<span class="mul">&times;</span> slower than MEROS $r=2$ at matched error).
+            </p>
+          </div>
+
+          <div class="table-wrap">
+            <table class="data-table data-table--compact">
+              <thead>
+                <tr>
+                  <th rowspan="2">Method (DINOv3-B, B300)</th>
+                  <th colspan="4">Operator Rel. Error &darr;</th>
+                  <th colspan="4">Operator Speedup vs. Exact FA2 &uarr;</th>
+                  <th colspan="2">Backbone vs. FA2 &uarr;</th>
+                  <th rowspan="2">8K Mem &darr;</th>
+                  <th colspan="2">mIoU &uarr;</th>
+                </tr>
+                <tr>
+                  <th>1K</th><th>2K</th><th>4K</th><th>8K</th>
+                  <th>1K</th><th>2K</th><th>4K</th><th>8K</th>
+                  <th>4K</th><th>8K</th>
+                  <th>UAVid</th><th>City</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>Exact FlashAttention-2 (FA2)</td><td>.002</td><td>.002</td><td>.002</td><td>.002</td><td>1.00<span class="mul">&times;</span></td><td>1.00<span class="mul">&times;</span></td><td>1.00<span class="mul">&times;</span></td><td>1.00<span class="mul">&times;</span></td><td>1.00<span class="mul">&times;</span></td><td>1.00<span class="mul">&times;</span></td><td>7.42 GB</td><td>59.13</td><td>74.84</td></tr>
+                <tr><td>Exact FlashAttention-4 (FA4)</td><td>.002</td><td>.002</td><td>.002</td><td>.002</td><td>1.26<span class="mul">&times;</span></td><td>2.61<span class="mul">&times;</span></td><td>2.97<span class="mul">&times;</span></td><td>2.94<span class="mul">&times;</span></td><td>2.51<span class="mul">&times;</span></td><td>2.80<span class="mul">&times;</span></td><td>7.42 GB</td><td>59.13</td><td>74.84</td></tr>
+                <tr><td>NATTEN</td><td>.153</td><td>.346</td><td>.484</td><td>.685</td><td>0.25<span class="mul">&times;</span></td><td>1.91<span class="mul">&times;</span></td><td>9.49<span class="mul">&times;</span></td><td>23.9<span class="mul">&times;</span></td><td>4.95<span class="mul">&times;</span></td><td>18.3<span class="mul">&times;</span></td><td>7.45 GB</td><td>58.43</td><td>71.33</td></tr>
+                <tr><td>SpargeAttn</td><td>.108</td><td>.096</td><td>.063</td><td>.055</td><td>0.53<span class="mul">&times;</span></td><td>1.94<span class="mul">&times;</span></td><td>2.76<span class="mul">&times;</span></td><td>2.95<span class="mul">&times;</span></td><td>2.17<span class="mul">&times;</span></td><td>2.89<span class="mul">&times;</span></td><td>7.44 GB</td><td>58.72</td><td>74.38</td></tr>
+                <tr><td>XAttention</td><td>.493</td><td>.285</td><td>.055</td><td>.047</td><td>0.22<span class="mul">&times;</span></td><td>0.66<span class="mul">&times;</span></td><td>1.08<span class="mul">&times;</span></td><td>1.58<span class="mul">&times;</span></td><td>0.98<span class="mul">&times;</span></td><td>1.16<span class="mul">&times;</span></td><td>7.42 GB</td><td>55.54</td><td>64.68</td></tr>
+                <tr><td>PISA</td><td><strong>.054</strong></td><td><strong>.021</strong></td><td><strong>.017</strong></td><td>.013</td><td>0.43<span class="mul">&times;</span></td><td>1.71<span class="mul">&times;</span></td><td>2.55<span class="mul">&times;</span></td><td>2.19<span class="mul">&times;</span></td><td>1.56<span class="mul">&times;</span></td><td>1.54<span class="mul">&times;</span></td><td>7.42 GB</td><td>58.90</td><td>73.12</td></tr>
+                <tr><td>ClusterAttn</td><td>.099</td><td>.066</td><td>.032</td><td>.021</td><td>0.14<span class="mul">&times;</span></td><td>0.64<span class="mul">&times;</span></td><td>1.41<span class="mul">&times;</span></td><td>1.69<span class="mul">&times;</span></td><td>1.35<span class="mul">&times;</span></td><td>1.67<span class="mul">&times;</span></td><td>9.22 GB</td><td>55.29</td><td>74.27</td></tr>
+                <tr><td>i-clustered</td><td>.253</td><td>.247</td><td>.219</td><td>.216</td><td>0.06<span class="mul">&times;</span></td><td>0.38<span class="mul">&times;</span></td><td>1.85<span class="mul">&times;</span></td><td>6.50<span class="mul">&times;</span></td><td>1.59<span class="mul">&times;</span></td><td>4.85<span class="mul">&times;</span></td><td>80.9 GB</td><td>26.74</td><td>50.24</td></tr>
+                <tr><td>HyperAttention</td><td>.764</td><td>.541</td><td>.356</td><td>.344</td><td>0.24<span class="mul">&times;</span></td><td>2.01<span class="mul">&times;</span></td><td>12.4<span class="mul">&times;</span></td><td>23.0<span class="mul">&times;</span></td><td>1.25<span class="mul">&times;</span></td><td>1.31<span class="mul">&times;</span></td><td>7.42 GB</td><td>52.97</td><td>66.81</td></tr>
+                <tr class="row-meros"><td>MEROS r=2</td><td>.073</td><td>.041</td><td>.020</td><td class="num-best">.010</td><td>2.30<span class="mul">&times;</span></td><td>4.80<span class="mul">&times;</span></td><td>6.08<span class="mul">&times;</span></td><td>6.05<span class="mul">&times;</span></td><td>5.20<span class="mul">&times;</span></td><td>5.75<span class="mul">&times;</span></td><td>7.19 GB</td><td class="num-best">59.04</td><td class="num-best">74.68</td></tr>
+                <tr class="row-meros"><td>MEROS r=4</td><td>.123</td><td>.071</td><td>.035</td><td>.018</td><td>3.42<span class="mul">&times;</span></td><td>7.89<span class="mul">&times;</span></td><td>11.7<span class="mul">&times;</span></td><td>12.5<span class="mul">&times;</span></td><td>8.28<span class="mul">&times;</span></td><td>11.2<span class="mul">&times;</span></td><td>6.94 GB</td><td>58.96</td><td>74.38</td></tr>
+                <tr class="row-meros"><td>MEROS r=8</td><td>.180</td><td>.106</td><td>.052</td><td>.027</td><td class="num-best">4.04<span class="mul">&times;</span></td><td class="num-best">11.0<span class="mul">&times;</span></td><td class="num-best">21.0<span class="mul">&times;</span></td><td class="num-best">24.8<span class="mul">&times;</span></td><td class="num-best">11.6<span class="mul">&times;</span></td><td class="num-best">19.4<span class="mul">&times;</span></td><td class="num-best">6.81 GB</td><td>58.79</td><td>73.73</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="table-note">Table 1 excerpt from main paper. Operator error measured relative to FP32 exact attention on DIV8K; timings on one NVIDIA B300 at batch&nbsp;1, BF16. MEROS $r=2$ achieves the lowest error of any method at 8K (0.010), and $r=8$ is the fastest at every size.</p>
+        </div>
+
+        <!-- TAB 2: Semantic Segmentation (17 Settings) -->
+        <div class="bench-panel" id="panel-seg" role="tabpanel">
+          <div class="controls-bar">
+            <div class="pill-group" id="segFilterBtns">
+              <button class="pill-btn active" data-ds="all">All 4 Datasets (17 Runs)</button>
+              <button class="pill-btn" data-ds="UAVid">UAVid (7 ViTs)</button>
+              <button class="pill-btn" data-ds="Cityscapes">Cityscapes</button>
+              <button class="pill-btn" data-ds="DeepGlobe">DeepGlobe 2.5K</button>
+              <button class="pill-btn" data-ds="URUR">URUR 5K</button>
+            </div>
+            <span style="font-size:13px;color:var(--ink-3);">Whole $5120^2$ URUR image: <strong>1,119&nbsp;ms Exact FA2 &rarr; 80&nbsp;ms MEROS r=8 (14.0<span class="mul">&times;</span> faster)</strong> with &minus;0.17 mIoU (native)</span>
+          </div>
+
+          <div class="table-wrap">
+            <table class="data-table data-table--compact" id="segTable">
+              <thead>
+                <tr>
+                  <th rowspan="2">Dataset</th>
+                  <th rowspan="2">Backbone</th>
+                  <th rowspan="2">Input</th>
+                  <th rowspan="2">Exact FA2 mIoU</th>
+                  <th colspan="2">SpargeAttn</th>
+                  <th colspan="2">NATTEN</th>
+                  <th colspan="2">ClusterAttn</th>
+                  <th colspan="3">MEROS &Delta;mIoU &uarr;</th>
+                  <th colspan="3">MEROS Backbone vs. FA2 &uarr;</th>
+                </tr>
+                <tr>
+                  <th>&Delta;mIoU</th><th>Speed</th>
+                  <th>&Delta;mIoU</th><th>Speed</th>
+                  <th>&Delta;mIoU</th><th>Speed</th>
+                  <th>r=2</th><th>r=4</th><th>r=8</th>
+                  <th>r=2</th><th>r=4</th><th>r=8</th>
+                </tr>
+              </thead>
+              <tbody id="segTableBody"></tbody>
+            </table>
+          </div>
+
+          <div class="callout-banner">
+            <div>
+              <strong>Comparison with Token Merging (UAVid, $2048^2$ tiles):</strong>
+              On MAE-L (Exact FlashAttention-2: 49.11 mIoU, 87.1&nbsp;ms), PiToMe at matched MACs drops to <strong>38.94 mIoU (&minus;10.2)</strong> while taking <strong>215&nbsp;ms</strong> (17.3&nbsp;GB), and ToMe needs <strong>711&nbsp;ms</strong> (20.7&nbsp;GB) to preserve accuracy. MEROS $r=8$ achieves <strong>48.97 mIoU</strong> in <strong>20.5&nbsp;ms</strong> (1.24&nbsp;GB), which is <strong>10.5<span class="mul">&times;</span> faster than PiToMe</strong> and <strong>4.25<span class="mul">&times;</span> faster than Exact FA2</strong>.
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: Relative Depth at Native Resolution -->
+        <div class="bench-panel" id="panel-depth" role="tabpanel">
+          <div class="callout-banner callout-banner--meros">
+            <div>
+              <strong>MEROS Attention is faster and sharper than clustering and pruning on 6K 3D geometry:</strong>
+              On 6K ETH3D scenes (129k tokens), i-clustered runs <strong>2.4<span class="mul">&times;</span>&ndash;2.8<span class="mul">&times;</span> slower</strong> than MEROS while blurring thin pipes and raising AbsRel to <strong>5.76%</strong> (MoGe-3) and <strong>8.64%</strong> (DAv2-L), and default Expedit runs out of memory. MEROS $r=8$ holds AbsRel at <strong>3.29%</strong> and <strong>4.67%</strong> while accelerating encoders <strong>6.75<span class="mul">&times;</span>&ndash;7.33<span class="mul">&times;</span> over Exact FlashAttention-2</strong>.
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th rowspan="2">Method (Native Resolution, H200)</th>
+                  <th colspan="4">Middlebury (30k tokens, 23 imgs)</th>
+                  <th colspan="4">ETH3D (129k tokens, 10 imgs)</th>
+                </tr>
+                <tr>
+                  <th>AbsRel (%) &darr;</th><th>RMSE (m) &darr;</th><th>&delta;<sub>1</sub> (%) &uarr;</th><th>Encoder vs. FA2 &uarr;</th>
+                  <th>AbsRel (%) &darr;</th><th>RMSE (m) &darr;</th><th>&delta;<sub>1</sub> (%) &uarr;</th><th>Encoder vs. FA2 &uarr;</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="row-group"><td colspan="9">MoGe-3 ViT-G</td></tr>
+                <tr><td>Exact FlashAttention-2 (FA2)</td><td>2.61</td><td>0.106</td><td>99.86</td><td>1.00<span class="mul">&times;</span></td><td>3.26</td><td>0.136</td><td>99.15</td><td>1.00<span class="mul">&times;</span></td></tr>
+                <tr><td>NATTEN</td><td>7.76</td><td>0.310</td><td>95.33</td><td>2.48<span class="mul">&times;</span></td><td>23.12</td><td>1.151</td><td>58.09</td><td><strong>9.43<span class="mul">&times;</span></strong></td></tr>
+                <tr><td>XAttention</td><td>3.48</td><td>0.131</td><td>98.93</td><td>0.95<span class="mul">&times;</span></td><td>3.85</td><td>0.166</td><td>98.96</td><td>1.17<span class="mul">&times;</span></td></tr>
+                <tr><td>i-clustered</td><td>5.02</td><td>0.216</td><td>96.73</td><td>0.84<span class="mul">&times;</span></td><td>5.76</td><td>0.226</td><td>97.50</td><td>2.79<span class="mul">&times;</span></td></tr>
+                <tr><td>Expedit</td><td>6.46</td><td>0.269</td><td>92.92</td><td>1.26<span class="mul">&times;</span></td><td colspan="4" class="num-oom">Out of Memory (OOM)</td></tr>
+                <tr><td>HyperAttention</td><td>2.85</td><td>0.120</td><td>99.66</td><td>1.18<span class="mul">&times;</span></td><td>3.29</td><td>0.163</td><td><strong>99.18</strong></td><td>1.29<span class="mul">&times;</span></td></tr>
+                <tr class="row-meros"><td>MEROS r=2</td><td class="num-best">2.64</td><td class="num-best">0.107</td><td class="num-best">99.86</td><td>1.86<span class="mul">&times;</span></td><td class="num-best">3.26</td><td class="num-best">0.136</td><td>99.15</td><td>2.39<span class="mul">&times;</span></td></tr>
+                <tr class="row-meros"><td>MEROS r=8</td><td>2.69</td><td>0.109</td><td>99.63</td><td class="num-best">3.37<span class="mul">&times;</span></td><td>3.29</td><td class="num-best">0.136</td><td>99.15</td><td class="num-best">6.75<span class="mul">&times;</span></td></tr>
+
+                <tr class="row-group"><td colspan="9">Depth Anything V2-L</td></tr>
+                <tr><td>Exact FlashAttention-2 (FA2)</td><td>4.07</td><td>0.161</td><td>99.26</td><td>1.00<span class="mul">&times;</span></td><td>4.64</td><td>0.222</td><td>98.30</td><td>1.00<span class="mul">&times;</span></td></tr>
+                <tr><td>NATTEN</td><td>10.31</td><td>0.375</td><td>89.49</td><td>2.60<span class="mul">&times;</span></td><td>25.06</td><td>1.156</td><td>58.83</td><td><strong>10.3<span class="mul">&times;</span></strong></td></tr>
+                <tr><td>XAttention</td><td>4.12</td><td>0.166</td><td>98.54</td><td>0.83<span class="mul">&times;</span></td><td>6.54</td><td>0.305</td><td>96.14</td><td>1.00<span class="mul">&times;</span></td></tr>
+                <tr><td>i-clustered</td><td>7.61</td><td>0.301</td><td>93.18</td><td>0.76<span class="mul">&times;</span></td><td>8.64</td><td>0.377</td><td>91.83</td><td>2.61<span class="mul">&times;</span></td></tr>
+                <tr><td>Expedit</td><td>9.18</td><td>0.348</td><td>90.61</td><td>0.94<span class="mul">&times;</span></td><td colspan="4" class="num-oom">Out of Memory (OOM)</td></tr>
+                <tr><td>HyperAttention</td><td>4.97</td><td>0.192</td><td>98.39</td><td>1.19<span class="mul">&times;</span></td><td>6.44</td><td>0.323</td><td>96.03</td><td>1.30<span class="mul">&times;</span></td></tr>
+                <tr class="row-meros"><td>MEROS r=2</td><td>4.10</td><td class="num-best">0.161</td><td>99.22</td><td>1.94<span class="mul">&times;</span></td><td class="num-best">4.66</td><td>0.225</td><td>98.29</td><td>2.43<span class="mul">&times;</span></td></tr>
+                <tr class="row-meros"><td>MEROS r=8</td><td class="num-best">4.05</td><td class="num-best">0.161</td><td class="num-best">99.23</td><td class="num-best">3.72<span class="mul">&times;</span></td><td>4.67</td><td class="num-best">0.224</td><td class="num-best">98.39</td><td class="num-best">7.33<span class="mul">&times;</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="table-note">Scale-and-shift aligned relative depth metrics (Table 7). Speedup is encoder latency over Exact FlashAttention-2 on NVIDIA H200. Official SpargeAttn fails at these token counts. On <strong>all 454 ETH3D images</strong> (MoGe-3 ViT-G, Table S15), MEROS $r=8$ holds AbsRel at <strong>3.66%</strong> vs. 3.63% Exact (<strong>6.75<span class="mul">&times;</span> faster</strong>, RMSE <strong>0.492 m</strong>), whereas i-clustered drops to 8.79% and Expedit (default) runs out of memory.</p>
+        </div>
+
+        <!-- TAB 4: Native-Resolution Image Matting -->
+        <div class="bench-panel" id="panel-matting" role="tabpanel">
+          <div class="callout-banner callout-banner--meros">
+            <div>
+              <strong>Training-free MEROS beats trained MEMatte-B on every metric &amp; avoids OOM:</strong>
+              Original ViTMatte-B runs out of memory on <strong>36 of 100 PPM-100</strong> images (and 38 of 50 Transparent-460 images) even on a <strong>288&nbsp;GB B300</strong>. Because MEROS keeps ViTMatte's relative position bias natively, it runs in &lt;23&nbsp;GB at <strong>3.78<span class="mul">&times;</span> whole-backbone speedup over query-chunked Exact attention</strong> while beating trained MEMatte-B and position-bias-dropping baselines (PISA, SpargeAttn, ClusterAttn) on every error metric.
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="data-table data-table--compact">
+              <thead>
+                <tr>
+                  <th rowspan="2">Method (ViTMatte-B, Native Res)</th>
+                  <th colspan="6">PPM-100 (avg. 2875&times;2997 px)</th>
+                  <th colspan="6">AIM-500 (avg. 1260&times;1397 px)</th>
+                </tr>
+                <tr>
+                  <th>SAD &darr;</th><th>MSE &darr;</th><th>Grad &darr;</th><th>Conn &darr;</th><th>vs. Exact &uarr;</th><th>Mem &darr;</th>
+                  <th>SAD &darr;</th><th>MSE &darr;</th><th>Grad &darr;</th><th>Conn &darr;</th><th>vs. Exact &uarr;</th><th>Mem &darr;</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>ViTMatte-B, original</td><td colspan="5" class="num-oom">Out of memory on 36 / 100 images</td><td>260 GB</td><td>14.4</td><td>11.69</td><td>11.1</td><td>13.7</td><td>0.90<span class="mul">&times;</span></td><td>16.0 GB</td></tr>
+                <tr><td>ViTMatte-B, Exact (chunked)</td><td>35.3</td><td>13.92</td><td>36.5</td><td>32.3</td><td>1.00<span class="mul">&times;</span></td><td>22.3 GB</td><td>14.4</td><td>11.69</td><td>11.1</td><td>13.7</td><td>1.00<span class="mul">&times;</span></td><td>3.7 GB</td></tr>
+                <tr><td>MEMatte-B<sup>&dagger;</sup> (trained router)</td><td>37.1</td><td>15.80</td><td>41.6</td><td>35.0</td><td>2.96<span class="mul">&times;</span></td><td>33.3 GB</td><td>16.7</td><td>15.60</td><td>13.9</td><td>16.0</td><td>1.12<span class="mul">&times;</span></td><td><strong>3.6 GB</strong></td></tr>
+                <tr><td>PiToMe (keep 0.5)</td><td>35.5</td><td>13.96</td><td>37.1</td><td>32.9</td><td>1.27<span class="mul">&times;</span></td><td>95.9 GB</td><td>14.5</td><td>11.77</td><td>11.3</td><td>13.9</td><td>1.11<span class="mul">&times;</span></td><td>7.2 GB</td></tr>
+                <tr><td>PISA (w/o pos. bias)</td><td>37.8</td><td>15.06</td><td>37.6</td><td>34.9</td><td>3.06<span class="mul">&times;</span></td><td>26.9 GB</td><td>14.8</td><td>12.28</td><td>11.3</td><td>14.0</td><td>1.79<span class="mul">&times;</span></td><td>3.7 GB</td></tr>
+                <tr><td>SpargeAttn (w/o pos. bias)</td><td>37.4</td><td>14.72</td><td>37.2</td><td>34.4</td><td>3.11<span class="mul">&times;</span></td><td>28.3 GB</td><td>14.8</td><td>12.17</td><td>11.3</td><td>14.1</td><td>1.83<span class="mul">&times;</span></td><td>3.7 GB</td></tr>
+                <tr><td>ClusterAttn (w/o pos. bias)</td><td>38.0</td><td>15.20</td><td>37.8</td><td>35.2</td><td>2.96<span class="mul">&times;</span></td><td>27.3 GB</td><td>14.8</td><td>12.35</td><td>11.4</td><td>14.1</td><td>0.68<span class="mul">&times;</span></td><td>3.8 GB</td></tr>
+                <tr class="row-meros"><td>MEROS r=2 (keeps pos. bias)</td><td class="num-best">35.2</td><td class="num-best">13.85</td><td class="num-best">36.4</td><td class="num-best">32.2</td><td>2.23<span class="mul">&times;</span></td><td>22.7 GB</td><td class="num-best">14.2</td><td class="num-best">11.52</td><td class="num-best">11.1</td><td class="num-best">13.6</td><td>1.98<span class="mul">&times;</span></td><td>3.7 GB</td></tr>
+                <tr class="row-meros"><td>MEROS r=4 (keeps pos. bias)</td><td>35.4</td><td>13.96</td><td>36.6</td><td>32.4</td><td>2.97<span class="mul">&times;</span></td><td class="num-best">21.8 GB</td><td>14.5</td><td>11.82</td><td>11.2</td><td>13.7</td><td>2.14<span class="mul">&times;</span></td><td>3.7 GB</td></tr>
+                <tr class="row-meros"><td>MEROS r=8 (keeps pos. bias)</td><td>35.5</td><td>14.00</td><td>36.7</td><td>32.6</td><td class="num-best">3.78<span class="mul">&times;</span></td><td>22.7 GB</td><td>14.6</td><td>11.94</td><td>11.2</td><td>13.8</td><td class="num-best">2.63<span class="mul">&times;</span></td><td>3.8 GB</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="table-note">Table 5. MSE in $10^{-3}$. Speedup is whole-backbone speedup over query-chunked Exact attention on one B300. Dropping ViTMatte's relative position bias alone degrades exact SAD from 35.3 &rarr; 38.0 on PPM-100.</p>
+        </div>
+
+        <!-- TAB 5: High-Resolution 8K VLMs (HR-Bench) -->
+        <div class="bench-panel" id="panel-vlm" role="tabpanel">
+          <div class="chart-card">
+            <div class="chart-card-header">
+              <div>
+                <h3>Where Time-to-First-Token (TTFT) Goes on 8K Images (Qwen3-VL-8B)</h3>
+                <p>The vision encoder takes <strong>10.83&nbsp;s of 12.60&nbsp;s (86%)</strong>, so post-encoder pruning plateaus at 1.11<span class="mul">&times;</span> over Exact FlashAttention-2. MEROS accelerates the vision encoder 5.75<span class="mul">&times;</span> and composes directly with SparseVLM.</p>
+              </div>
+              <div class="lab-legend" style="margin-bottom:0;">
+                <span class="legend-item"><span class="legend-swatch legend-swatch--local"></span>Vision Encoder (Exact FA2 / FA4)</span>
+                <span class="legend-item"><span class="legend-swatch legend-swatch--far"></span>MEROS Vision Encoder</span>
+                <span class="legend-item"><span class="legend-swatch" style="background:#64748b;"></span>LLM Prefill</span>
+                <span class="legend-item"><span class="legend-swatch legend-swatch--global"></span>Pruned Prefill</span>
+              </div>
+            </div>
+            <div class="ttft-bars" id="vlmTtftBars"></div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="data-table data-table--compact">
+              <thead>
+                <tr>
+                  <th rowspan="2">Method (HR-Bench 8K &amp; 4K)</th>
+                  <th colspan="3">Qwen3-VL-8B (native)</th>
+                  <th colspan="3">Qwen3-VL-4B (native)</th>
+                  <th colspan="3">GLM-4.6V-Flash (native)</th>
+                  <th colspan="3">Kimi-VL-A3B (4 MP)</th>
+                </tr>
+                <tr>
+                  <th>8K &uarr;</th><th>4K &uarr;</th><th>TTFT (vs. FA2)</th>
+                  <th>8K &uarr;</th><th>4K &uarr;</th><th>TTFT (vs. FA2)</th>
+                  <th>8K &uarr;</th><th>4K &uarr;</th><th>TTFT (vs. FA2)</th>
+                  <th>8K &uarr;</th><th>4K &uarr;</th><th>TTFT (vs. FA2)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>Exact FlashAttention-2 (FA2)</td><td>67.75</td><td>73.38</td><td>12.60s (1.00<span class="mul">&times;</span>)</td><td>65.12</td><td>69.62</td><td>7.99s (1.00<span class="mul">&times;</span>)</td><td>65.62</td><td>71.38</td><td>19.48s (1.00<span class="mul">&times;</span>)</td><td>55.25</td><td>58.38</td><td>3.26s (1.00<span class="mul">&times;</span>)</td></tr>
+                <tr><td>Exact FlashAttention-4 (FA4)</td><td>68.00</td><td>73.25</td><td>5.01s (2.51<span class="mul">&times;</span>)</td><td>65.50</td><td>69.25</td><td>3.89s (2.05<span class="mul">&times;</span>)</td><td>65.38</td><td>71.50</td><td>8.10s (2.41<span class="mul">&times;</span>)</td><td>54.75</td><td>58.00</td><td>0.38s (8.50<span class="mul">&times;</span>)</td></tr>
+                <tr><td>FastV (post-encoder)</td><td>68.12</td><td>73.50</td><td>11.52s (1.09<span class="mul">&times;</span>)</td><td>65.62</td><td>68.75</td><td>7.01s (1.14<span class="mul">&times;</span>)</td><td>65.75</td><td>72.38</td><td>17.43s (1.12<span class="mul">&times;</span>)</td><td>55.50</td><td>58.25</td><td>3.14s (1.04<span class="mul">&times;</span>)</td></tr>
+                <tr><td>SparseVLM (post-encoder)</td><td>68.25</td><td>73.88</td><td>11.30s (1.11<span class="mul">&times;</span>)</td><td>65.12</td><td><strong>69.62</strong></td><td>6.82s (1.17<span class="mul">&times;</span>)</td><td><strong>66.50</strong></td><td>71.88</td><td>17.01s (1.15<span class="mul">&times;</span>)</td><td>54.62</td><td>57.88</td><td>3.12s (1.04<span class="mul">&times;</span>)</td></tr>
+                <tr><td>Window attention (encoder)</td><td>63.87</td><td>68.38</td><td>3.81s (3.30<span class="mul">&times;</span>)</td><td>51.75</td><td>&ndash;</td><td>&ndash;</td><td>60.38</td><td>&ndash;</td><td>&ndash;</td><td>51.25</td><td>&ndash;</td><td>&ndash;</td></tr>
+                <tr class="row-meros"><td>MEROS r=2</td><td class="num-best">68.91</td><td>73.76</td><td>8.16s (1.54<span class="mul">&times;</span>)</td><td class="num-best">65.71</td><td>69.15</td><td>4.94s (1.62<span class="mul">&times;</span>)</td><td>65.92</td><td class="num-best">72.62</td><td>10.65s (1.83<span class="mul">&times;</span>)</td><td class="num-best">55.93</td><td class="num-best">58.71</td><td>0.46s (7.10<span class="mul">&times;</span>)</td></tr>
+                <tr class="row-meros"><td>MEROS r=8</td><td>67.85</td><td>72.32</td><td>3.66s (3.45<span class="mul">&times;</span>)</td><td>64.23</td><td>68.54</td><td>2.62s (3.05<span class="mul">&times;</span>)</td><td>64.58</td><td>70.38</td><td>5.47s (3.57<span class="mul">&times;</span>)</td><td>55.31</td><td>57.63</td><td>0.37s (8.75<span class="mul">&times;</span>)</td></tr>
+                <tr class="row-meros"><td>MEROS r=8 + SparseVLM</td><td>68.89</td><td class="num-best">73.89</td><td class="num-best">2.35s (5.36<span class="mul">&times;</span>)</td><td>65.67</td><td>68.63</td><td class="num-best">1.44s (5.54<span class="mul">&times;</span>)</td><td>65.71</td><td>71.91</td><td class="num-best">3.02s (6.45<span class="mul">&times;</span>)</td><td>55.57</td><td>57.81</td><td class="num-best">0.23s (14.2<span class="mul">&times;</span>)</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="table-note">Table 6 (official VLMEvalKit). Combining MEROS $r=8$ inside the vision encoder with SparseVLM in the LLM achieves <strong>5.36<span class="mul">&times;</span>&ndash;14.2<span class="mul">&times;</span> TTFT speedup over Exact FlashAttention-2</strong> while matching or exceeding exact accuracy on HR-Bench 8K across all four VLMs.</p>
+        </div>
+
+        <!-- TAB 6: DIS5K & Ablations -->
+        <div class="bench-panel" id="panel-dis" role="tabpanel">
+          <div class="gallery-grid-2">
+            <div>
+              <h3 style="margin:0 0 10px;font-size:16px;">Dichotomous Segmentation (DIS-TE, 2,000 images)</h3>
+              <div class="table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr><th>DINOv3-B Method</th><th>$F_\beta^{\max}$ &uarr;</th><th>$S_\alpha$ &uarr;</th><th>HCE$_\gamma$ &darr;</th><th>ms &darr;</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr class="row-group"><td colspan="5">1024 px input</td></tr>
+                    <tr><td>Exact FlashAttention-2 (1024 px)</td><td>.781</td><td>.807</td><td>1443</td><td>7.2</td></tr>
+                    <tr class="row-meros"><td>MEROS r=8 (1024 px)</td><td>.775</td><td>.803</td><td>1438</td><td class="num-best">2.5</td></tr>
+                    <tr class="row-group"><td colspan="5">2048 px input</td></tr>
+                    <tr><td>Exact FlashAttention-2 (2048 px)</td><td>.816</td><td>.823</td><td>1514</td><td>43.2</td></tr>
+                    <tr><td>SpargeAttn</td><td>.813</td><td>.820</td><td>1527</td><td>33.2</td></tr>
+                    <tr><td>NATTEN</td><td>.762</td><td>.786</td><td>1532</td><td>26.5</td></tr>
+                    <tr><td>XAttention</td><td>.777</td><td>.798</td><td>1525</td><td>58.9</td></tr>
+                    <tr class="row-meros"><td>MEROS r=2 (2048 px)</td><td class="num-best">.815</td><td class="num-best">.822</td><td class="num-best">1513</td><td>11.4</td></tr>
+                    <tr class="row-meros"><td>MEROS r=8 (2048 px)</td><td>.809</td><td>.818</td><td class="num-best">1513</td><td class="num-best">8.1</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="table-note"><strong>Iso-latency win:</strong> MEROS $r=8$ at 2048&nbsp;px runs in <strong>8.1&nbsp;ms</strong> (5.3<span class="mul">&times;</span> faster than 2048&nbsp;px Exact FA2 and matching 1024&nbsp;px Exact FA2 at 7.2&nbsp;ms) while gaining <strong>+0.028 $F_\beta^{\max}$</strong> on thin wires and lattices.</p>
+            </div>
+
+            <div>
+              <h3 style="margin:0 0 10px;font-size:16px;">Component Ablations (DINOv3-B, r=8)</h3>
+              <div class="table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr><th>Variant (one change)</th><th>UAVid Err &darr;</th><th>City Err &darr;</th><th>Agree (%) &uarr;</th><th>City &Delta;mIoU &uarr;</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>Local tile sampled</td><td>.253</td><td>.411</td><td>95.1</td><td>&minus;12.64</td></tr>
+                    <tr><td>No HT weight $r$</td><td>.439</td><td>.476</td><td>96.1</td><td>&minus;7.61</td></tr>
+                    <tr><td>Fixed grid</td><td>.169</td><td>.201</td><td>98.3</td><td>&minus;2.11</td></tr>
+                    <tr><td>$8\times 8$ local tile</td><td>.171</td><td>.216</td><td>98.4</td><td>&minus;1.91</td></tr>
+                    <tr class="row-meros"><td>Full MEROS (r=8)</td><td class="num-best">.141</td><td class="num-best">.162</td><td class="num-best">98.9</td><td class="num-best">&minus;1.11</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="table-note">Table 8b. Sampling the local tile loses 12.64 mIoU on Cityscapes segmentation; omitting the $+\log r$ Horvitz–Thompson weight nearly triples feature error; Full MEROS agrees with Exact FlashAttention-2 on <strong>98.9%</strong> of predicted pixels.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== INTERACTIVE MULTI-TASK VISUAL GALLERY ===================== -->
+    <section class="section section--alt" id="gallery">
+      <div class="container">
+        <div class="section-header">
+          <div class="section-kicker">Qualitative Inspection</div>
+          <h2 class="section-title">MEROS Attention Preserves Native-Resolution Fidelity</h2>
+          <p class="section-lead">
+            Compare MEROS $r=8$ directly against Exact FlashAttention-2 and baselines across 6K monocular depth, 1:1 native-pixel matting crops (6000&times;4000), 3D point clouds, dense segmentation, and 8K VLM visual reasoning.
+          </p>
+        </div>
+
+        <div class="bench-tabs" role="tablist" aria-label="Visual gallery categories" id="galleryTabs">
+          <button class="bench-tab active" data-gtab="depth" role="tab" aria-selected="true">6K &amp; 3K Depth Slider</button>
+          <button class="bench-tab" data-gtab="matting" role="tab" aria-selected="false">1:1 Native Matting Slider</button>
+          <button class="bench-tab" data-gtab="clouds" role="tab" aria-selected="false">3D Point Clouds</button>
+          <button class="bench-tab" data-gtab="plates" role="tab" aria-selected="false">Seg, DIS5K &amp; 8K VLM Plates</button>
+        </div>
+
+        <!-- Gallery Tab A: Live 6K & 3K Depth Slider -->
+        <div class="bench-panel active" id="gpanel-depth" role="tabpanel">
+          <div class="gallery-slider-card">
+            <div class="gallery-slider-head">
+              <div class="pill-group" id="depthSceneBtns">
+                <button class="pill-btn active" data-dscene="eth5_moge">ETH3D Pipes (MoGe-3)</button>
+                <button class="pill-btn" data-dscene="eth8_moge">ETH3D Corridor (MoGe-3)</button>
+                <button class="pill-btn" data-dscene="eth5_dav2">ETH3D Pipes (DAv2-L)</button>
+                <button class="pill-btn" data-dscene="mid13_dav2">Playtable 3K (DAv2-L)</button>
+              </div>
+              <div class="pill-group" id="depthLeftBtns">
+                <button class="pill-btn active" data-dleft="iclust">vs. i-clustered</button>
+                <button class="pill-btn" data-dleft="exact">vs. Exact FA2</button>
+                <button class="pill-btn" data-dleft="rgb">vs. RGB Input</button>
+              </div>
+            </div>
+
+            <div class="compare-stage" id="depthCompare" tabindex="0" aria-label="Interactive depth comparison slider">
+              <img class="compare-img-base" id="depthImgRight" src="assets/sliders/depth/eth5_moge_meros.jpg" alt="MEROS r=8 native resolution depth map" />
+              <div class="compare-overlay">
+                <img id="depthImgLeft" src="assets/sliders/depth/eth5_moge_iclust.jpg" alt="i-clustered baseline depth map comparison" />
+              </div>
+              <div class="compare-badge compare-badge--left" id="depthBadgeLeft">
+                <span class="cb-title">i-clustered</span>
+                <span class="cb-sub">AbsRel 5.09% &middot; 4.91 s (2.8<span class="mul">&times;</span> vs. FA2)</span>
+              </div>
+              <div class="compare-badge compare-badge--right" id="depthBadgeRight">
+                <span class="cb-title">MEROS r=8 Native 6K</span>
+                <span class="cb-sub">AbsRel 3.46% &middot; 2.03 s (6.8<span class="mul">&times;</span> vs. FA2)</span>
+              </div>
+              <div class="compare-divider">
+                <div class="compare-handle" aria-hidden="true">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><polyline points="15 7 20 12 15 17"/></svg>
+                </div>
+              </div>
+              <span class="compare-hint">&larr; Drag to compare depth maps &rarr;</span>
+            </div>
+
+            <div class="gallery-meta-bar">
+              <div id="depthMetaText">
+                <strong>ETH3D Pipes (6048&times;4032, 129k tokens, MoGe-3 ViT-G):</strong> i-clustered runs 2.4<span class="mul">&times;</span> slower than MEROS (4.91&nbsp;s vs. 2.03&nbsp;s) and washes out ceiling ducts and wall pipes (AbsRel 5.09%). MEROS $r=8$ matches Exact FA2 (3.44% in 13.71&nbsp;s) at <strong>3.46% AbsRel</strong>.
+              </div>
+              <span class="meta-pill" id="depthMetaPill">6.8<span class="mul">&times;</span> vs. Exact FA2 &middot; 2.4<span class="mul">&times;</span> faster than i-clustered</span>
+            </div>
+          </div>
+
+          <!-- Directly Visible Native-Resolution Depth Estimation Results Table (Table 7 + All 454 ETH3D) -->
+          <div style="margin-top:26px;">
+            <div style="display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:10px;">
+              <h3 style="margin:0;font-size:17px;font-family:var(--font-serif);color:var(--ink);">Native-Resolution Relative Depth Results (Middlebury &amp; ETH3D, NVIDIA H200)</h3>
+              <span style="font-size:12.5px;color:var(--ink-3);">All 454 ETH3D (MoGe-3): Exact 3.63% &rarr; <strong>MEROS r=8 3.66% (6.75<span class="mul">&times;</span>)</strong> vs. i-clustered 8.79%</span>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th rowspan="2">Method (Native Resolution, H200)</th>
+                    <th colspan="4">Middlebury (30k tokens, 23 imgs)</th>
+                    <th colspan="4">ETH3D (129k tokens, 10 imgs)</th>
+                  </tr>
+                  <tr>
+                    <th>AbsRel (%) &darr;</th><th>RMSE (m) &darr;</th><th>&delta;<sub>1</sub> (%) &uarr;</th><th>Encoder vs. FA2 &uarr;</th>
+                    <th>AbsRel (%) &darr;</th><th>RMSE (m) &darr;</th><th>&delta;<sub>1</sub> (%) &uarr;</th><th>Encoder vs. FA2 &uarr;</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="row-group"><td colspan="9">MoGe-3 ViT-G</td></tr>
+                  <tr><td>Exact FlashAttention-2 (FA2)</td><td>2.61</td><td>0.106</td><td>99.86</td><td>1.00<span class="mul">&times;</span></td><td>3.26</td><td>0.136</td><td>99.15</td><td>1.00<span class="mul">&times;</span></td></tr>
+                  <tr><td>NATTEN</td><td>7.76</td><td>0.310</td><td>95.33</td><td>2.48<span class="mul">&times;</span></td><td>23.12</td><td>1.151</td><td>58.09</td><td><strong>9.43<span class="mul">&times;</span></strong></td></tr>
+                  <tr><td>XAttention</td><td>3.48</td><td>0.131</td><td>98.93</td><td>0.95<span class="mul">&times;</span></td><td>3.85</td><td>0.166</td><td>98.96</td><td>1.17<span class="mul">&times;</span></td></tr>
+                  <tr><td>i-clustered</td><td>5.02</td><td>0.216</td><td>96.73</td><td>0.84<span class="mul">&times;</span></td><td>5.76</td><td>0.226</td><td>97.50</td><td>2.79<span class="mul">&times;</span></td></tr>
+                  <tr><td>Expedit</td><td>6.46</td><td>0.269</td><td>92.92</td><td>1.26<span class="mul">&times;</span></td><td colspan="4" class="num-oom">Out of Memory (OOM)</td></tr>
+                  <tr><td>HyperAttention</td><td>2.85</td><td>0.120</td><td>99.66</td><td>1.18<span class="mul">&times;</span></td><td>3.29</td><td>0.163</td><td><strong>99.18</strong></td><td>1.29<span class="mul">&times;</span></td></tr>
+                  <tr class="row-meros"><td>MEROS r=2</td><td class="num-best">2.64</td><td class="num-best">0.107</td><td class="num-best">99.86</td><td>1.86<span class="mul">&times;</span></td><td class="num-best">3.26</td><td class="num-best">0.136</td><td>99.15</td><td>2.39<span class="mul">&times;</span></td></tr>
+                  <tr class="row-meros"><td>MEROS r=8</td><td>2.69</td><td>0.109</td><td>99.63</td><td class="num-best">3.37<span class="mul">&times;</span></td><td>3.29</td><td class="num-best">0.136</td><td>99.15</td><td class="num-best">6.75<span class="mul">&times;</span></td></tr>
+
+                  <tr class="row-group"><td colspan="9">Depth Anything V2-L</td></tr>
+                  <tr><td>Exact FlashAttention-2 (FA2)</td><td>4.07</td><td>0.161</td><td>99.26</td><td>1.00<span class="mul">&times;</span></td><td>4.64</td><td>0.222</td><td>98.30</td><td>1.00<span class="mul">&times;</span></td></tr>
+                  <tr><td>NATTEN</td><td>10.31</td><td>0.375</td><td>89.49</td><td>2.60<span class="mul">&times;</span></td><td>25.06</td><td>1.156</td><td>58.83</td><td><strong>10.3<span class="mul">&times;</span></strong></td></tr>
+                  <tr><td>XAttention</td><td>4.12</td><td>0.166</td><td>98.54</td><td>0.83<span class="mul">&times;</span></td><td>6.54</td><td>0.305</td><td>96.14</td><td>1.00<span class="mul">&times;</span></td></tr>
+                  <tr><td>i-clustered</td><td>7.61</td><td>0.301</td><td>93.18</td><td>0.76<span class="mul">&times;</span></td><td>8.64</td><td>0.377</td><td>91.83</td><td>2.61<span class="mul">&times;</span></td></tr>
+                  <tr><td>Expedit</td><td>9.18</td><td>0.348</td><td>90.61</td><td>0.94<span class="mul">&times;</span></td><td colspan="4" class="num-oom">Out of Memory (OOM)</td></tr>
+                  <tr><td>HyperAttention</td><td>4.97</td><td>0.192</td><td>98.39</td><td>1.19<span class="mul">&times;</span></td><td>6.44</td><td>0.323</td><td>96.03</td><td>1.30<span class="mul">&times;</span></td></tr>
+                  <tr class="row-meros"><td>MEROS r=2</td><td>4.10</td><td class="num-best">0.161</td><td>99.22</td><td>1.94<span class="mul">&times;</span></td><td class="num-best">4.66</td><td>0.225</td><td>98.29</td><td>2.43<span class="mul">&times;</span></td></tr>
+                  <tr class="row-meros"><td>MEROS r=8</td><td class="num-best">4.05</td><td class="num-best">0.161</td><td class="num-best">99.23</td><td class="num-best">3.72<span class="mul">&times;</span></td><td>4.67</td><td class="num-best">0.224</td><td class="num-best">98.39</td><td class="num-best">7.33<span class="mul">&times;</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="table-note">Table 7 (scale-and-shift aligned relative depth at native resolution; bold = best apart from Exact). Encoder speedup is measured over Exact FlashAttention-2 on one NVIDIA H200. Full 454-image ETH3D evaluation on MoGe-3 ViT-G (Table S15): Exact 3.63% / 0.493 m vs. MEROS $r=2$ <strong>3.64%</strong> (2.39<span class="mul">&times;</span>), $r=4$ <strong>3.64%</strong> / <strong>0.492 m</strong> (4.26<span class="mul">&times;</span>), $r=8$ 3.66% / <strong>0.492 m</strong> (<strong>6.75<span class="mul">&times;</span></strong>), while i-clustered drops to 8.79% and default Expedit runs out of memory.</p>
+          </div>
+        </div>
+
+        <!-- Gallery Tab B: Live 1:1 Native-Pixel Image Matting Slider -->
+        <div class="bench-panel" id="gpanel-matting" role="tabpanel">
+          <div class="controls-bar controls-bar--centered" style="max-width:680px;">
+            <div class="pill-group" id="matSceneBtns">
+              <button class="pill-btn active" data-mscene="web">Spiderweb 6000&times;4000 (1:1)</button>
+              <button class="pill-btn" data-mscene="hair">Portrait Hair 4843&times;3229 (1:1)</button>
+            </div>
+            <div class="pill-group" id="matLeftBtns">
+              <button class="pill-btn active" data-mleft="exact_down2048">vs. Exact &darr;2048</button>
+              <button class="pill-btn" data-mleft="exact_sdpa">vs. Exact Chunked</button>
+              <button class="pill-btn" data-mleft="mematte_b">vs. MEMatte-B</button>
+            </div>
+          </div>
+
+          <div class="compare-stage compare-stage--square" id="matCompare" tabindex="0" aria-label="Interactive 1:1 native-pixel image matting slider">
+            <img class="compare-img-base" id="matImgRight" src="assets/sliders/matting/web_meros_r8.jpg" alt="MEROS r=8 native resolution alpha matte 1:1 crop" />
+            <div class="compare-overlay">
+              <img id="matImgLeft" src="assets/sliders/matting/web_exact_down2048.jpg" alt="Baseline alpha matte 1:1 crop" />
+            </div>
+            <div class="compare-badge compare-badge--left" id="matBadgeLeft">
+              <span class="cb-title">Exact @ &darr;2048 px</span>
+              <span class="cb-sub">0.18 s &middot; |SAD| to Exact: 346.9</span>
+            </div>
+            <div class="compare-badge compare-badge--right" id="matBadgeRight">
+              <span class="cb-title">MEROS r=8 Native 6K</span>
+              <span class="cb-sub">1.54 s (5.0<span class="mul">&times;</span> vs. chunked) &middot; |SAD|: 4.6</span>
+            </div>
+            <div class="compare-divider">
+              <div class="compare-handle" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><polyline points="15 7 20 12 15 17"/></svg>
+              </div>
+            </div>
+            <span class="compare-hint">&larr; True 1:1 native 1024&times;1024 pixel crop &rarr;</span>
+          </div>
+
+          <div class="gallery-meta-bar gallery-meta-bar--square">
+            <div id="matMetaText">
+              <strong>Transparent-460 Spiderweb (6000&times;4000, ViTMatte-B):</strong> Original ViTMatte-B runs out of memory even on a 288&nbsp;GB B300; downscaling to 2048&nbsp;px melts fine silk threads (|SAD| to Exact = 346.9). MEROS $r=8$ runs natively in <strong>1.54&nbsp;s</strong> vs. 7.72&nbsp;s chunked exact (<strong>5.0<span class="mul">&times;</span> faster</strong>), matching Exact to within <strong>4.6 SAD</strong>.
+            </div>
+            <span class="meta-pill" id="matMetaPill">5.0<span class="mul">&times;</span> vs. Chunked Exact &middot; Zero OOM</span>
+          </div>
+
+          <div class="figure-card" style="margin-bottom:0;">
+            <div class="zoomable-wrap" data-lightbox="assets/figures/gal_matting_t460.png" data-caption="Transparent-460 native-resolution matting gallery (ViTMatte-B): Dragonfly wings (5.6x speedup over chunked exact, 3.42s -> 0.61s), Water splash (4.6x, 4.69s -> 1.01s), Dew spiderweb (5.1x, 5.94s -> 1.17s), and Fine cobweb (5.0x, 7.72s -> 1.54s). Original ViTMatte-B OOMs on 38/50 images on B300; MEROS stays under 29 GB.">
+              <img src="assets/figures/gal_matting_t460.png" alt="Transparent-460 native resolution matting gallery showing dragonfly wings, water splash, and spiderwebs" />
+              <span class="zoom-badge">Click to zoom full T460 gallery</span>
+            </div>
+            <p class="figure-caption">
+              <strong>Transparent-460 native-resolution gallery.</strong> MEROS runs 4.6&ndash;5.6<span class="mul">&times;</span> faster than query-chunked exact attention (e.g., Dragonfly wings 3.42&nbsp;s &rarr; 0.61&nbsp;s; Dew web 5.94&nbsp;s &rarr; 1.17&nbsp;s) while keeping peak memory under 29&nbsp;GB.
+            </p>
+          </div>
+        </div>
+
+        <!-- Gallery Tab C: 3D Point Clouds -->
+        <div class="bench-panel" id="gpanel-clouds" role="tabpanel">
+          <div class="controls-bar controls-bar--centered">
+            <span style="font-size:14px;font-weight:600;color:var(--ink);">MoGe-3 ViT-G Oblique 3D Point Cloud Reconstruction (ETH3D 6K Pipes)</span>
+            <div class="pill-group" id="cloudLeftBtns">
+              <button class="pill-btn active" data-cleft="exact">Exact FA2 (13.71 s)</button>
+              <button class="pill-btn" data-cleft="local">Local-Only (No Far Field)</button>
+            </div>
+          </div>
+
+          <div class="compare-stage" id="cloudCompare" tabindex="0" style="background:#ffffff;" aria-label="Interactive 3D point cloud comparison slider">
+            <img class="compare-img-base" id="cloudImgRight" src="assets/sliders/clouds/pipes_meros.webp" alt="MEROS r=8 3D point cloud reconstruction" />
+            <div class="compare-overlay">
+              <img id="cloudImgLeft" src="assets/sliders/clouds/pipes_exact.webp" alt="Exact FlashAttention-2 3D point cloud reconstruction" />
+            </div>
+            <div class="compare-badge compare-badge--left" id="cloudBadgeLeft">
+              <span class="cb-title">Exact FlashAttention-2</span>
+              <span class="cb-sub">13.71 s encoder latency</span>
+            </div>
+            <div class="compare-badge compare-badge--right">
+              <span class="cb-title">MEROS r=8 Native 6K</span>
+              <span class="cb-sub">2.03 s (6.8<span class="mul">&times;</span> faster than Exact FA2)</span>
+            </div>
+            <div class="compare-divider">
+              <div class="compare-handle" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><polyline points="15 7 20 12 15 17"/></svg>
+              </div>
+            </div>
+            <span class="compare-hint">&larr; Drag to inspect 3D geometry &rarr;</span>
+          </div>
+
+          <div class="figure-card" style="margin-top:22px;margin-bottom:0;">
+            <div class="zoomable-wrap" data-lightbox="assets/figures/gal_pointmaps.png" data-caption="MoGe-3 ViT-G oblique 3D point maps across ETH3D scenes (Appendix Fig. 14a): Ground truth, Exact FlashAttention-2, MEROS r=8 (6.8x faster encoder, Chamfer distance matching Exact within 0.06 pts), and point-wise 3D difference map.">
+              <img src="assets/figures/gal_pointmaps.png" alt="MoGe-3 ViT-G 3D point map gallery across ETH3D scenes" />
+              <span class="zoom-badge">Click to zoom 3D point map plate</span>
+            </div>
+            <p class="figure-caption">
+              <strong>3D point clouds stay geometrically locked to Exact FlashAttention-2</strong> (within 0.06 Chamfer distance on ETH3D) at 6.8<span class="mul">&times;</span> lower encoder latency.
+            </p>
+          </div>
+        </div>
+
+        <!-- Gallery Tab D: Segmentation, DIS5K & 8K VLM Plates -->
+        <div class="bench-panel" id="gpanel-plates" role="tabpanel">
+          <div class="figure-card">
+            <div class="zoomable-wrap" data-lightbox="assets/figures/qualitative.png" data-caption="Figure 4 (Main Paper): Native-resolution visual comparison across (a) 6K depth, (b) 3D point maps, (c) Cityscapes segmentation, and (d) PPM-100 & Transparent-460 hair/spiderweb matting.">
+              <img src="assets/figures/qualitative.png" alt="Main paper multi-task qualitative figure across depth, point maps, segmentation, and matting" />
+              <span class="zoom-badge">Click to zoom</span>
+            </div>
+            <p class="figure-caption">
+              <strong>Main paper qualitative comparison (Figure&nbsp;4):</strong> Depth, 3D point maps, Cityscapes segmentation, and native-resolution matting side-by-side.
+            </p>
+          </div>
+
+          <div class="gallery-grid-2">
+            <div class="figure-card" style="margin-bottom:0;">
+              <div class="zoomable-wrap" data-lightbox="assets/figures/gal_segmentation_dis.png" data-caption="High-resolution DINOv3-B segmentation across whole 5120x5120 URUR (14.0x over Exact FA2), 4K UAVid (5.4x), 2.5K DeepGlobe, Cityscapes, and iso-latency DIS-TE4 fine structures (2048px MEROS r=8 in 8.1 ms vs 1024px Exact FA2 in 7.2 ms).">
+                <img src="assets/figures/gal_segmentation_dis.png" alt="Semantic segmentation and DIS-TE4 dichotomous segmentation qualitative gallery" />
+                <span class="zoom-badge">Click to zoom</span>
+              </div>
+              <p class="figure-caption">
+                <strong>Dense Segmentation &amp; DIS5K:</strong> Whole $5120^2$ URUR in 80&nbsp;ms (14.0<span class="mul">&times;</span> faster than Exact FA2) and crisp iso-latency DIS-TE4 thin structures (8.1&nbsp;ms).
+              </p>
+            </div>
+            <div class="figure-card" style="margin-bottom:0;">
+              <div class="zoomable-wrap" data-lightbox="assets/figures/gal_vlm_hrbench.png" data-caption="HR-Bench 8K VLM visual reasoning (Appendix Fig. 15): Reading tiny text on a golf bag in an 8K scene. Native resolution allocates 154 visual tokens vs only 20 tokens at 4 MP. MEROS r=8 + SparseVLM answers accurately in 2.35 s vs 12.60 s Exact FA2 (5.36x faster TTFT).">
+                <img src="assets/figures/gal_vlm_hrbench.png" alt="HR-Bench 8K VLM reasoning examples comparing native resolution MEROS with 4MP downscaling" />
+                <span class="zoom-badge">Click to zoom</span>
+              </div>
+              <p class="figure-caption">
+                <strong>8K Vision-Language Reasoning (HR-Bench):</strong> Native resolution gives tiny details 7.7<span class="mul">&times;</span> more visual tokens (154 vs. 20 at 4&nbsp;MP) while MEROS + SparseVLM cuts TTFT from 12.60&nbsp;s Exact FA2 to 2.35&nbsp;s (5.36<span class="mul">&times;</span> faster).
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== 42-LINE PYTORCH REFERENCE ===================== -->
+    <section class="section" id="code">
+      <div class="container">
+        <div class="section-header">
+          <div class="section-kicker">Minimal Drop-In Implementation</div>
+          <h2 class="section-title">The Entire MEROS Algorithm in 42&nbsp;Lines of&nbsp;PyTorch</h2>
+          <p class="section-lead">
+            Verbatim from Listing&nbsp;1 of the paper, runnable directly on standard <code>torch.nn.functional.scaled_dot_product_attention</code> with zero custom C++ extensions required to verify outputs (our <a href="https://github.com/CV-AC/MEROS" target="_blank" rel="noopener noreferrer">Triton and CuTe kernels on GitHub</a> fuse the tile loop to reach 54% B300 BF16 peak).
+          </p>
+        </div>
+
+        <div class="code-shell">
+          <div class="code-header">
+            <div class="code-dots">
+              <div class="dot-group" aria-hidden="true">
+                <span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span>
+              </div>
+              <span class="code-filename">meros_reference.py</span>
+            </div>
+            <div class="code-chips">
+              <span class="code-chip">SHA-256 per-cell pairs</span>
+              <span class="code-chip">Nested r &isin; {8, 4, 2}</span>
+              <span class="code-chip">Drop-in SDPA</span>
+              <a href="https://github.com/CV-AC/MEROS" class="copy-btn" target="_blank" rel="noopener noreferrer" style="text-decoration:none;">GitHub &nearr;</a>
+              <button class="copy-btn" id="copyCodeBtn">Copy Code</button>
+            </div>
+          </div>
+          <pre class="code-pre" id="pytorchCodeBlock"></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== BIBTEX CITATION ===================== -->
+    <section class="section section--alt" id="bibtex" style="border-bottom:none;">
+      <div class="container" style="max-width:860px;">
+        <div class="section-header section-header--center">
+          <div class="section-kicker">Citation</div>
+          <h2 class="section-title">Cite MEROS</h2>
+          <p class="section-lead">If you find MEROS useful in your research or high-resolution ViT deployment, please consider citing our work.</p>
+        </div>
+
+        <div class="bibtex-card">
+          <div class="bibtex-header">
+            <span>BibTeX</span>
+            <button class="copy-btn copy-btn--light" id="copyBibtexBtn">Copy BibTeX</button>
+          </div>
+          <pre class="bibtex-pre" id="bibtexText">@article{yu2026meros,
+  title   = {MEROS: The More a ViT Sees, the Less Precise It Needs to Attend},
+  author  = {Yu, Hao and Xue, Feng and Wei, Hui and Zhao, Guoying},
+  journal = {arXiv preprint},
+  year    = {2026}
+}</pre>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===================== FOOTER ===================== -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div>
+        <strong>MEROS</strong> &middot; Hao Yu, Feng Xue, Hui Wei, Guoying Zhao &middot;
+        ELLIS Institute Finland &middot; CMVS, University of Oulu &middot; MHUG, University of Trento
+      </div>
+      <div>
+        Code: <a href="https://github.com/CV-AC/MEROS" target="_blank" rel="noopener noreferrer">github.com/CV-AC/MEROS</a> &middot;
+        Contact: <a href="mailto:hao.2.yu@oulu.fi">hao.2.yu@oulu.fi</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ===================== FULLSCREEN IMAGE LIGHTBOX ===================== -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Enlarged figure viewer">
+    <button class="lightbox-close" id="lightboxClose" aria-label="Close lightbox">&times;</button>
+    <div class="lightbox-content">
+      <img id="lightboxImg" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="" />
+    </div>
+    <p class="lightbox-caption" id="lightboxCaption"></p>
+  </div>
+
+  <!-- ===================== TOAST FEEDBACK ===================== -->
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="assets/showcase/showcase_data.js?v=20261125c"></script>
+  <script src="app.js?v=20261125c"></script>
+</body>
+</html>
