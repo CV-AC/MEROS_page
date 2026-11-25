@@ -146,7 +146,7 @@
         <!-- 4 Headline Metrics (crystal-clear baselines and units) -->
         <div class="metrics-ribbon">
           <div class="metric-card" style="--card-accent: var(--meros);">
-            <div class="metric-value">24.8<span class="mul">&times;</span></div>
+            <div class="metric-value">24.8<span class="mul">&times;</span><span class="metric-unit">faster</span></div>
             <div class="metric-label">Attention Speedup vs. FA2</div>
             <div class="metric-sub">At 8K on NVIDIA B300, MEROS Attention runs 24.8<span class="mul">&times;</span> faster than Exact FA2 (8.4<span class="mul">&times;</span> vs. FA4) and reaches 20.2<span class="mul">&times;</span> whole-backbone speedup across 14 ViTs.</div>
           </div>
@@ -156,13 +156,13 @@
             <div class="metric-sub">At $r=2$, MEROS loses 0.07 median mIoU at 3.04<span class="mul">&times;</span> whole-backbone speedup on segmentation, and matches exact matting, depth, 3D, &amp; VLMs.</div>
           </div>
           <div class="metric-card" style="--card-accent: var(--global);">
-            <div class="metric-value">&frac12;<span class="mul">&times;</span></div>
-            <div class="metric-label">Error Halves per 2<span class="mul">&times;</span> Image Size</div>
+            <div class="metric-value">&frac12;<span class="mul">&times;</span><span class="metric-unit">error</span></div>
+            <div class="metric-label">Halves Error per 2<span class="mul">&times;</span> Image Size</div>
             <div class="metric-sub">MEROS Attention gives an unbiased estimate of far-field attention: its error halves whenever image side doubles as <span class="nowrap">4<span class="mul">&times;</span></span> more far cells cancel noise.</div>
           </div>
           <div class="metric-card" style="--card-accent: #475569;">
-            <div class="metric-value">0</div>
-            <div class="metric-label">Training-Free &amp; General</div>
+            <div class="metric-value">0<span class="metric-unit">training</span></div>
+            <div class="metric-label">General Drop-In Replacement</div>
             <div class="metric-sub">MEROS replaces each attention layer in frozen ViTs with a dense kernel, keeping all tokens and supporting position biases, attention biases, and masks.</div>
           </div>
         </div>
