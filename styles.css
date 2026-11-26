@@ -686,7 +686,7 @@ code, pre, .mono {
 .hero-speed-title {
   margin: 0;
   font-family: var(--font-serif);
-  font-size: 1.24rem;
+  font-size: 1.34rem;
   font-weight: 600;
   line-height: 1.22;
   letter-spacing: -0.015em;
@@ -697,7 +697,7 @@ code, pre, .mono {
 .hero-speed-title .accent-num {
   color: #fdba74;
   font-family: var(--font-mono);
-  font-size: 1.18rem;
+  font-size: 1.28rem;
   font-weight: 700;
 }
 
@@ -1152,6 +1152,11 @@ code, pre, .mono {
 
 /* ---------- Live Wall-Clock Speed Race (DINOv3-L, 4K-8K) ---------- */
 .section--race .section-header {
+  max-width: 100%;
+}
+
+/* Method title is one word longer; give its header the full container width like the race section */
+#method .section-header {
   max-width: 100%;
 }
 
