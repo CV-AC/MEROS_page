@@ -492,6 +492,7 @@
       holdSec: 0,
       paused: false,
       inView: true,
+      started: false,
       lastTs: null
     };
 
@@ -649,7 +650,7 @@
 
     function tick(ts) {
       requestAnimationFrame(tick);
-      if (st.paused || !st.inView) {
+      if (!st.started || st.paused || !st.inView) {
         st.lastTs = ts;
         return;
       }
@@ -682,6 +683,7 @@
         });
         btn.classList.add("active");
         btn.setAttribute("aria-selected", "true");
+        st.started = true;
         resetRace(btn.dataset.rkey);
       });
     });
@@ -703,7 +705,10 @@
     }
 
     if (els.replayBtn) {
-      els.replayBtn.addEventListener("click", () => resetRace());
+      els.replayBtn.addEventListener("click", () => {
+        st.started = true;
+        resetRace();
+      });
     }
 
     if ("IntersectionObserver" in window) {
@@ -718,6 +723,33 @@
       }, { threshold: 0.15 });
       io.observe(theater);
     }
+
+    // The race waits at the start line until the whole theater is on screen below the sticky nav.
+    // A theater taller than the visible area starts once it fills that area.
+    const raceNav = document.querySelector(".site-nav");
+    function theaterFullyShown() {
+      const r = theater.getBoundingClientRect();
+      const top = raceNav ? raceNav.getBoundingClientRect().bottom : 0;
+      const bottom = window.innerHeight;
+      if (r.height <= bottom - top) return r.top >= top - 1 && r.bottom <= bottom + 1;
+      return r.top <= top + 1 && r.bottom >= bottom - 1;
+    }
+    function checkRaceStart() {
+      if (st.started) {
+        window.removeEventListener("scroll", checkRaceStart);
+        window.removeEventListener("resize", checkRaceStart);
+        return;
+      }
+      if (theaterFullyShown()) {
+        st.started = true;
+        resetRace();
+        window.removeEventListener("scroll", checkRaceStart);
+        window.removeEventListener("resize", checkRaceStart);
+      }
+    }
+    window.addEventListener("scroll", checkRaceStart, { passive: true });
+    window.addEventListener("resize", checkRaceStart);
+    checkRaceStart();
 
     // Helper for deterministic QA screenshots
     window.__setRaceTime = (sec, key) => {
