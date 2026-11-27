@@ -1301,22 +1301,23 @@ code, pre, .mono {
 .race-ctrl-btn--replay {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 8px 17px 8px 14px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 190, 160, 0.6);
+  gap: 8px;
+  padding: 10.5px 23px 10.5px 19px;
+  border-radius: 11px;
+  border: 1px solid rgba(255, 190, 160, 0.65);
   background: linear-gradient(135deg, #e85d2c 0%, #c94a22 100%);
   color: #ffffff;
-  font-size: 13.5px;
+  font-size: 15.5px;
   font-weight: 700;
+  line-height: 1.2;
   letter-spacing: 0.01em;
-  box-shadow: 0 4px 16px rgba(217, 78, 35, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  box-shadow: 0 5px 18px rgba(217, 78, 35, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.22);
   transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease, border-color 0.15s ease;
 }
 
 .race-ctrl-btn--replay svg {
-  width: 15px;
-  height: 15px;
+  width: 17px;
+  height: 17px;
   flex: none;
   fill: none;
   stroke: currentColor;
@@ -3529,7 +3530,7 @@ code, pre, .mono {
   .race-theater { padding: 13px; border-radius: 16px; }
   .race-res-btn { padding: 5.5px 9px; font-size: 11.5px; }
   .race-res-btn .rr-sub { display: none; }
-  .race-ctrl-btn--replay { padding: 6px 14px 6px 12px; font-size: 13px; }
+  .race-ctrl-btn--replay { padding: 7.5px 16px 7.5px 13px; font-size: 14px; }
   .showcase-track-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
   .showcase-thumb-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
   .ctc-media { height: 64px; }

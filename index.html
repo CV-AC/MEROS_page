@@ -16,7 +16,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
 
-  <link rel="stylesheet" href="styles.css?v=20261126b" />
+  <link rel="stylesheet" href="styles.css?v=20261127a" />
 </head>
 <body>
   <div class="scroll-progress" id="scrollProgress" aria-hidden="true"></div>
@@ -245,13 +245,13 @@
               <button class="race-res-btn" data-rkey="2k" role="tab" aria-selected="false">2K <span class="rr-sub">2048&sup2; &middot; B300</span></button>
             </div>
             <div class="race-actions">
+              <button class="race-ctrl-btn race-ctrl-btn--replay" id="raceReplayBtn" type="button" aria-label="Replay the race"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Replay</button>
               <div class="race-clock" id="raceClock" aria-live="off">
                 <span class="rc-dot"></span>
                 <span class="rc-val" id="raceClockVal">0.00 s</span>
               </div>
               <button class="race-ctrl-btn" id="raceSpeedBtn" type="button" title="Playback speed">1<span class="mul">&times;</span> real-time</button>
               <button class="race-ctrl-btn" id="racePauseBtn" type="button">Pause</button>
-              <button class="race-ctrl-btn race-ctrl-btn--replay" id="raceReplayBtn" type="button" aria-label="Replay the race"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Replay</button>
             </div>
           </div>
 
